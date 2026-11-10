@@ -114,11 +114,6 @@ tbody tr:hover { background: var(--hover); }
 .scard .nm { font-size: 11px; font-weight: 650; display: flex; justify-content: space-between; gap: 6px; white-space: nowrap; }
 .scard .nm span { font-weight: 600; font-variant-numeric: tabular-nums; }
 .scard svg { display: block; }
-.mpyr { background: rgba(255,255,255,.92); border: 1px solid rgba(11,11,11,.18); border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,.15); cursor: pointer; }
-.mpyr:hover, .mpyr.sel { border-color: #0b0b0b; box-shadow: 0 0 0 1.5px #0b0b0b; }
-.mpyr svg { display: block; }
-.mpyr .nm { font-size: 9.5px; line-height: 1; text-align: center; color: #0b0b0b; padding: 2px 2px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
-.mdot { width: 8px; height: 8px; border-radius: 50%; background: #52514e; border: 1.5px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.25); }
 .leaflet-tooltip.btip { background: var(--surface); color: var(--ink); border: 1px solid var(--border); box-shadow: var(--shadow); border-radius: 8px; padding: 8px 10px; font-size: 12px; line-height: 1.5; }
 .leaflet-tooltip.btip::before { display: none; }
 .btip .t { font-weight: 600; font-size: 13px; }
@@ -223,7 +218,7 @@ tbody tr:hover { background: var(--hover); }
     <div class="mapctl">
       <div class="seg" id="migSeg" role="group" aria-label="지도 이동 지표"><button data-v="net" aria-pressed="true">순이동</button><button data-v="in" aria-pressed="false">전입</button><button data-v="out" aria-pressed="false">전출</button></div>
       <div class="seg" id="dimSeg" role="group" aria-label="카드·히트맵 구분"><button data-v="age" aria-pressed="true">연령별</button><button data-v="reason" aria-pressed="false">전입사유별</button></div>
-      <div class="box"><label><input type="checkbox" id="arrowToggle" checked> 시군구 간 이동 화살표</label><label style="margin-top:4px"><input type="checkbox" id="pyrToggle"> 행정동 인구 피라미드</label></div>
+      <div class="box"><label><input type="checkbox" id="arrowToggle" checked> 시군구 간 이동 화살표</label></div>
     </div>
     <section class="migpanel" id="migpanel" aria-live="polite"></section>
   </div>
@@ -704,45 +699,11 @@ tbody tr:hover { background: var(--hover); }
     sggLayer.setStyle((f) => sggStyle(f.properties.k)); paintCards(); layoutCards(); paintLegend(); paintMigPanel();
   }
 
-  // ── 행정동 피라미드(선택 레이어): 겹치면 인구 많은 동부터, 나머지는 점
-  const PW = 52, PH = 44, NM = 11;
-  const shareMax = Math.max(...P.flatMap((p) => p.m.concat(p.f).map((v) => v / p.t)));
-  const pyrLayer = L.layerGroup();
-  function miniSVG(p) {
-    const half = PW / 2 - 3, rh = (PH - 4) / N, w = (v) => v / p.t / shareMax * half;
-    let s = `<svg width="${PW}" height="${PH}" viewBox="0 0 ${PW} ${PH}" aria-hidden="true">`;
-    for (let i = 0; i < N; i++) { const y = 2 + (N - 1 - i) * rh; s += `<rect x="${PW / 2 - w(p.m[i])}" y="${y}" width="${w(p.m[i])}" height="${rh - 0.4}" fill="${css('--male')}"/><rect x="${PW / 2}" y="${y}" width="${w(p.f[i])}" height="${rh - 0.4}" fill="${css('--female')}"/>`; }
-    return s + `<line x1="${PW / 2}" x2="${PW / 2}" y1="1" y2="${PH - 1}" stroke="#c3c2b7" stroke-width="0.6"/></svg>`;
-  }
-  const pyrMarkers = P.map((p) => {
-    const m = L.marker([p.c[1], p.c[0]], { icon: L.divIcon({ className: '', html: '', iconSize: [PW, PH + NM] }) });
-    m.on('click', () => select(p.code));
-    m.bindTooltip(() => `<div class="t">${p.name}</div><div style="color:var(--muted)">${sggName(p)} · ${nf(p.t)}명</div>`, { className: 'btip', direction: 'top', offset: [0, -(PH + NM) / 2] });
-    m.p = p; m.addTo(pyrLayer); return m;
-  });
-  function layoutPyr() {
-    if (!map.hasLayer(pyrLayer)) return;
-    const placed = [];
-    // 시군구 카드 자리는 비워 둔다
-    for (const m of sggMarkers) { const pt = map.latLngToContainerPoint(m.getLatLng()); placed.push([pt.x - CW / 2 - 8, pt.y - (CH + 26) / 2 - 2, pt.x + CW / 2 + 8, pt.y + (CH + 26) / 2 + 2]); }
-    const order = pyrMarkers.slice().sort((a, b) => (b.p.code === selDong) - (a.p.code === selDong) || b.p.t - a.p.t);
-    for (const m of order) {
-      const pt = map.latLngToContainerPoint(m.getLatLng()), box = [pt.x - PW / 2 - 1, pt.y - (PH + NM) / 2 - 1, pt.x + PW / 2 + 1, pt.y + (PH + NM) / 2 + 1];
-      const show = !placed.some((b) => !(box[2] < b[0] || box[0] > b[2] || box[3] < b[1] || box[1] > b[3]));
-      if (show) placed.push(box);
-      m.setIcon(L.divIcon({ className: '', html: show ? `<div class="mpyr${selDong === m.p.code ? ' sel' : ''}" style="width:${PW + 2}px"><div class="nm">${m.p.name}</div>${miniSVG(m.p)}</div>` : '<div class="mdot"></div>', iconSize: show ? [PW + 2, PH + NM + 2] : [8, 8] }));
-      m.setZIndexOffset(show ? 1000 + Math.round(m.p.t / 100) : 0);
-    }
-  }
-  document.getElementById('pyrToggle').onchange = (e) => { if (e.target.checked) { pyrLayer.addTo(map); layoutPyr(); } else map.removeLayer(pyrLayer); };
-  map.on('zoomend', layoutPyr);
-
   // ── 행정동 선택 → 패널 상단 상세
   const detail = document.getElementById('detail');
   function select(code, fly) {
     selDong = code;
     dongLayer.eachLayer((l) => l.setStyle(dongStyle(l.feature.properties.code)));
-    layoutPyr();
     if (!code) { detail.hidden = true; return; }
     const p = P.find((x) => x.code === code), k = ageMax(p.m, p.f);
     detail.hidden = false;
