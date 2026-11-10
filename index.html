@@ -11,7 +11,9 @@
   --page: #f9f9f7; --surface: #fcfcfb; --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
   --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11,11,11,0.10); --hover: rgba(11,11,11,0.05);
   --accent: #2a78d6;
-  --male: #2a78d6; --female: #eb6834;   /* 범주형 1·2번 슬롯(검증된 순서) */
+  --male: #2a78d6; --female: #eb6834;            /* 범주형 1·2번 슬롯 */
+  --in: #2a78d6; --out: #e34948; --mid: #f0efec;  /* 분기형: 파랑(유입) ↔ 빨강(유출), 가운데 회색 */
+  --bar: #52514e;
   --shadow: 0 1px 2px rgba(0,0,0,.06), 0 4px 16px rgba(0,0,0,.08);
 }
 @media (prefers-color-scheme: dark) {
@@ -19,7 +21,7 @@
     color-scheme: dark;
     --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
     --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10); --hover: rgba(255,255,255,0.06);
-    --accent: #3987e5; --male: #3987e5; --female: #d95926;
+    --accent: #3987e5; --male: #3987e5; --female: #d95926; --in: #3987e5; --out: #e66767; --mid: #383835; --bar: #c3c2b7;
     --shadow: 0 1px 2px rgba(0,0,0,.4), 0 4px 16px rgba(0,0,0,.4);
   }
 }
@@ -27,41 +29,52 @@
   color-scheme: dark;
   --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
   --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10); --hover: rgba(255,255,255,0.06);
-  --accent: #3987e5; --male: #3987e5; --female: #d95926;
+  --accent: #3987e5; --male: #3987e5; --female: #d95926; --in: #3987e5; --out: #e66767; --mid: #383835; --bar: #c3c2b7;
   --shadow: 0 1px 2px rgba(0,0,0,.4), 0 4px 16px rgba(0,0,0,.4);
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; }
 body { background: var(--page); color: var(--ink); font: 14px/1.5 system-ui, -apple-system, "Segoe UI", "Malgun Gothic", sans-serif; }
-.app { display: grid; grid-template-columns: 380px minmax(0, 1fr); height: 100vh; height: 100dvh; }
-#map { height: 100%; background: var(--page); }
-.panel { background: var(--surface); border-right: 1px solid var(--border); overflow-y: auto; padding: 20px 20px 28px; display: flex; flex-direction: column; gap: 22px; min-width: 0; }
+.app { display: grid; grid-template-columns: 400px minmax(0, 1fr); height: 100vh; height: 100dvh; }
+.panel { background: var(--surface); border-right: 1px solid var(--border); overflow-y: auto; padding: 20px 20px 28px; display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+.mapcol { position: relative; min-width: 0; display: grid; grid-template-rows: minmax(0, 1fr) auto; }
+#map { min-height: 0; background: var(--page); }
 h1 { font-size: 20px; line-height: 1.3; margin: 0; font-weight: 650; letter-spacing: -0.01em; }
 .sub { color: var(--ink-2); margin: 4px 0 0; font-size: 13px; }
 h2 { font-size: 12px; font-weight: 600; color: var(--muted); margin: 0 0 8px; letter-spacing: .02em; }
+.tabs { display: grid; grid-template-columns: repeat(3, 1fr); border-bottom: 1px solid var(--border); margin: 0 -20px; padding: 0 20px; position: sticky; top: -20px; background: var(--surface); z-index: 3; }
+.tab { border: 0; background: none; font: inherit; font-size: 14px; color: var(--ink-2); padding: 10px 0; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.tab:hover { color: var(--ink); }
+.tab[aria-selected="true"] { color: var(--ink); font-weight: 600; border-bottom-color: var(--ink); }
+.tabpanel { display: flex; flex-direction: column; gap: 20px; }
+.tabpanel[hidden] { display: none; }
 .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .tile { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
 .tile .k { font-size: 12px; color: var(--muted); }
 .tile .v { font-size: 20px; font-weight: 650; letter-spacing: -0.01em; }
 .tile .v small { font-size: 12px; font-weight: 500; color: var(--ink-2); margin-left: 2px; }
 .tile.wide { grid-column: span 2; }
-.legend { display: flex; gap: 14px; font-size: 12.5px; color: var(--ink-2); align-items: center; margin-bottom: 6px; }
+.legend { display: flex; gap: 14px; font-size: 12.5px; color: var(--ink-2); align-items: center; margin-bottom: 6px; flex-wrap: wrap; }
 .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
-.pyr { position: relative; }
-.pyr svg { display: block; width: 100%; height: auto; }
-.pyr text { fill: var(--muted); font-size: 10px; font-variant-numeric: tabular-nums; }
-.tip { position: absolute; pointer-events: none; background: var(--surface); color: var(--ink); border: 1px solid var(--border); box-shadow: var(--shadow); border-radius: 8px; padding: 6px 9px; font-size: 12px; white-space: nowrap; opacity: 0; transition: opacity .1s; z-index: 5; }
+.chart { position: relative; }
+.chart svg { display: block; width: 100%; height: auto; }
+.chart text, .hm text { fill: var(--muted); font-size: 10px; font-variant-numeric: tabular-nums; }
+.tip { position: absolute; pointer-events: none; background: var(--surface); color: var(--ink); border: 1px solid var(--border); box-shadow: var(--shadow); border-radius: 8px; padding: 6px 9px; font-size: 12px; white-space: nowrap; opacity: 0; transition: opacity .1s; z-index: 20; }
 .tip b { font-weight: 600; }
-.hbar { display: grid; grid-template-columns: 124px 1fr 84px; align-items: center; gap: 8px; font-size: 12.5px; padding: 3px 0; }
+.hbar { display: grid; grid-template-columns: 124px 1fr 96px; align-items: center; gap: 8px; font-size: 12.5px; padding: 3px 0; }
 .hbar .lab { color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hbar .track { height: 10px; position: relative; }
-.hbar .bar { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 0 4px 4px 0; background: var(--ink-2); opacity: .55; }
+.hbar .bar { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 0 4px 4px 0; background: var(--bar); opacity: .6; }
 .hbar .val { text-align: right; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.hbar .val small { color: var(--muted); }
+.hbar.clickable { cursor: pointer; border-radius: 4px; }
+.hbar.clickable:hover { background: var(--hover); }
 .detail { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
-.detail .hint { color: var(--muted); font-size: 13px; margin: 0; }
+.detail[hidden] { display: none; }
 .detail h3 { margin: 0; font-size: 16px; font-weight: 650; }
 .detail .meta { font-size: 12.5px; color: var(--ink-2); margin: 2px 0 8px; }
 .detail .close { float: right; border: 0; background: none; color: var(--muted); font-size: 18px; cursor: pointer; line-height: 1; }
+.minirow { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 details { border-top: 1px solid var(--border); padding-top: 14px; }
 summary { cursor: pointer; font-size: 13px; color: var(--ink-2); }
 .tblwrap { max-height: 420px; overflow: auto; margin-top: 10px; }
@@ -69,22 +82,39 @@ table { border-collapse: collapse; width: 100%; font-size: 12px; font-variant-nu
 th, td { padding: 4px 4px; text-align: right; border-bottom: 1px solid var(--grid); white-space: nowrap; }
 th:first-child, td:first-child { text-align: left; }
 th { color: var(--muted); font-weight: 600; position: sticky; top: 0; background: var(--surface); cursor: pointer; }
-th[aria-sort]::after { content: attr(data-arrow); margin-left: 2px; }
+th[data-arrow]::after { content: attr(data-arrow); margin-left: 2px; }
 tbody tr { cursor: pointer; }
 tbody tr:hover { background: var(--hover); }
 .note { font-size: 12px; color: var(--ink-2); margin: 0; }
 .note + .note { margin-top: 6px; }
 .src { font-size: 11.5px; color: var(--muted); border-top: 1px solid var(--border); padding-top: 14px; margin-top: auto; }
 .src a { color: inherit; }
-.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
-.seg button { border: 0; background: transparent; color: var(--ink-2); font: inherit; font-size: 12.5px; padding: 4px 10px; cursor: pointer; }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--surface); }
+.seg button { border: 0; background: transparent; color: var(--ink-2); font: inherit; font-size: 12.5px; padding: 5px 11px; cursor: pointer; }
 .seg button[aria-pressed="true"] { background: var(--ink); color: var(--surface); }
 .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
-/* 지도 */
+/* 지도 컨트롤·하단 분석 패널 */
+.mapctl { position: absolute; top: 10px; right: 10px; z-index: 800; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.mapctl .box { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow); padding: 6px 10px; font-size: 12.5px; color: var(--ink-2); }
+.mapctl label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.migpanel { background: var(--surface); border-top: 1px solid var(--border); padding: 12px 16px 14px; position: relative; max-height: 46vh; overflow: auto; }
+.migpanel h2 { margin: 0; }
+.migpanel .head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.migpanel .hint { font-size: 12px; color: var(--muted); }
+.migpanel .back { border: 0; background: none; color: var(--accent); font: inherit; font-size: 12.5px; cursor: pointer; padding: 0; }
+.hm { position: relative; }
+.hm svg { display: block; width: 100%; height: auto; }
+.hm .rowlab { fill: var(--ink-2); font-size: 11px; cursor: pointer; }
+.cols2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .leaflet-container { font: inherit; }
 .tiles-gray { filter: grayscale(1) contrast(.68) brightness(1.14); }
+.scard { background: rgba(255,255,255,.94); border: 1px solid rgba(11,11,11,.18); border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.18); cursor: pointer; padding: 4px 6px 3px; color: #0b0b0b; }
+.scard:hover, .scard.sel { border-color: #0b0b0b; box-shadow: 0 0 0 1.5px #0b0b0b; }
+.scard .nm { font-size: 11px; font-weight: 650; display: flex; justify-content: space-between; gap: 6px; white-space: nowrap; }
+.scard .nm span { font-weight: 600; font-variant-numeric: tabular-nums; }
+.scard svg { display: block; }
 .mpyr { background: rgba(255,255,255,.92); border: 1px solid rgba(11,11,11,.18); border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,.15); cursor: pointer; }
-.mpyr:hover, .mpyr.sel { border-color: #0b0b0b; box-shadow: 0 0 0 1.5px #0b0b0b; z-index: 1000 !important; }
+.mpyr:hover, .mpyr.sel { border-color: #0b0b0b; box-shadow: 0 0 0 1.5px #0b0b0b; }
 .mpyr svg { display: block; }
 .mpyr .nm { font-size: 9.5px; line-height: 1; text-align: center; color: #0b0b0b; padding: 2px 2px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
 .mdot { width: 8px; height: 8px; border-radius: 50%; background: #52514e; border: 1.5px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.25); }
@@ -96,11 +126,14 @@ tbody tr:hover { background: var(--hover); }
 .stn { width: 14px; height: 14px; border-radius: 50%; background: #e34948; border: 2.5px solid #fff; box-shadow: 0 0 0 1.5px #0b0b0b; }
 .leaflet-tooltip.stnlab { background: #0b0b0b; color: #fff; border: 0; font-weight: 650; font-size: 12px; padding: 2px 7px; border-radius: 4px; }
 .leaflet-tooltip.stnlab::before { display: none; }
-@media (max-width: 760px) {
-  .app { grid-template-columns: minmax(0, 1fr); grid-template-rows: 60vh auto; height: auto; }
-  #map { height: 60vh; order: -1; }
+@media (max-width: 860px) {
+  .app { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto; height: auto; }
+  .mapcol { order: -1; grid-template-rows: 62vh auto; }
+  .migpanel { max-height: none; }
   .panel { border-right: 0; border-top: 1px solid var(--border); overflow: visible; padding: 18px 16px 24px; }
-  .hbar { grid-template-columns: 108px 1fr 78px; }
+  .tabs { margin: 0 -16px; padding: 0 16px; top: 0; }
+  .hbar { grid-template-columns: 108px 1fr 90px; }
+  .cols2 { grid-template-columns: 1fr; }
 }
 </style>
 </head>
@@ -108,230 +141,492 @@ tbody tr:hover { background: var(--hover); }
 <div class="app">
   <aside class="panel">
     <header>
-      <h1>운연역 반경 10km 주민등록인구</h1>
+      <h1>운연역 반경 10km 인구·가구</h1>
       <p class="sub" id="sub"></p>
     </header>
 
-    <section>
-      <div class="tiles" id="tiles"></div>
-    </section>
+    <section class="detail" id="detail" hidden></section>
 
-    <section>
-      <div class="row"><h2>성·연령별 인구 (5세 구간)</h2></div>
-      <div class="legend"><span><i style="background:var(--male)"></i>남자</span><span><i style="background:var(--female)"></i>여자</span></div>
-      <div class="pyr" id="pyrAll"><div class="tip"></div></div>
-    </section>
+    <div class="tabs" role="tablist" aria-label="패널 주제">
+      <button class="tab" role="tab" data-t="pop" aria-selected="true">인구구조</button>
+      <button class="tab" role="tab" data-t="hh" aria-selected="false">가구원수</button>
+      <button class="tab" role="tab" data-t="one" aria-selected="false">1인가구</button>
+    </div>
 
-    <section class="detail" id="detail"></section>
+    <!-- 인구구조 -->
+    <div class="tabpanel" id="tp-pop" role="tabpanel">
+      <div class="tiles" id="tilesPop"></div>
+      <section>
+        <h2>성·연령별 인구 (5세 구간)</h2>
+        <div class="legend"><span><i style="background:var(--male)"></i>남자</span><span><i style="background:var(--female)"></i>여자</span></div>
+        <div class="chart" id="pyrAll"><div class="tip"></div></div>
+      </section>
+      <section>
+        <h2>시군구별 인구 (반경 안 행정동 합계)</h2>
+        <div id="sggPop"></div>
+      </section>
+      <details>
+        <summary>행정동 131곳 표 (인구)</summary>
+        <div class="tblwrap"><table id="tblPop"></table></div>
+      </details>
+    </div>
 
-    <section>
-      <h2>시군구별 인구 (반경 내 행정동 합계)</h2>
-      <div id="sgg"></div>
-    </section>
+    <!-- 가구원수 -->
+    <div class="tabpanel" id="tp-hh" role="tabpanel" hidden>
+      <div class="tiles" id="tilesHh"></div>
+      <section>
+        <h2>가구원수별 일반가구 (반경 안 행정동 합계)</h2>
+        <div class="chart" id="hhAll"><div class="tip"></div></div>
+      </section>
+      <section>
+        <h2>시군구별 가구원수 구성 (%)</h2>
+        <div class="tblwrap" style="max-height:none;margin-top:0"><table id="tblHhSgg"></table></div>
+      </section>
+      <details>
+        <summary>행정동 131곳 표 (가구원수 구성비)</summary>
+        <div class="tblwrap"><table id="tblHh"></table></div>
+      </details>
+    </div>
 
-    <details>
-      <summary>행정동 131곳 표로 보기</summary>
-      <div class="tblwrap"><table id="tbl"></table></div>
-    </details>
-
-    <section>
-      <div class="row"><h2 style="margin:0">지도 위 피라미드</h2>
-        <div class="seg" id="scaleSeg" role="group" aria-label="피라미드 가로 축"><button data-v="share" aria-pressed="true">구성비</button><button data-v="abs" aria-pressed="false">인원</button></div></div>
-      <p class="note" style="margin-top:8px">구성비: 각 동 인구 중 해당 성·연령 비율(모든 동 같은 축) · 인원: 사람 수(모든 동 같은 축)</p>
-    </section>
+    <!-- 1인가구 -->
+    <div class="tabpanel" id="tp-one" role="tabpanel" hidden>
+      <div class="tiles" id="tilesOne"></div>
+      <section>
+        <h2>시군구별 1인가구 비율</h2>
+        <div id="sggOne"></div>
+      </section>
+      <section>
+        <h2>1인가구 비율 높은 행정동</h2>
+        <div id="oneTop"></div>
+      </section>
+      <section>
+        <h2>1인가구 비율 낮은 행정동</h2>
+        <div id="oneBot"></div>
+      </section>
+      <section>
+        <h2>행정동별 1인가구 비율 분포</h2>
+        <div class="chart" id="oneHist"><div class="tip"></div></div>
+      </section>
+    </div>
 
     <section>
       <p class="note" id="method"></p>
-      <p class="note">5세 구간은 원표(KOSIS)에 수록된 구간 그대로이며, ‘65세 이상’처럼 원표에 없는 구간은 따로 합산하지 않았습니다. 반경 합계·시군구 합계는 반경 안 행정동 값을 더한 직접 집계입니다.</p>
+      <p class="note">연령·가구원수 구간은 원표(KOSIS)에 수록된 구간 그대로이며, 원표에 없는 구간(예: 65세 이상, 4인 이상)은 합산해 만들지 않았습니다. 반경·시군구 합계는 행정동 값을 더한 직접 집계입니다.</p>
+      <p class="note" id="hhNote"></p>
     </section>
-
     <footer class="src" id="src"></footer>
   </aside>
-  <div id="map" aria-label="운연역 반경 10km 행정동 인구 지도"></div>
+
+  <div class="mapcol">
+    <div id="map" aria-label="운연역 반경 10km 지도"></div>
+    <div class="mapctl">
+      <div class="seg" id="migSeg" role="group" aria-label="지도 이동 지표"><button data-v="net" aria-pressed="true">순이동</button><button data-v="in" aria-pressed="false">전입</button><button data-v="out" aria-pressed="false">전출</button></div>
+      <div class="box"><label><input type="checkbox" id="pyrToggle"> 행정동 인구 피라미드</label></div>
+    </div>
+    <section class="migpanel" id="migpanel" aria-live="polite"></section>
+  </div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="data/unyeon_data.js"></script>
 <script>
 (() => {
-  const D = window.UNYEON, F = D.dongs.features, AG = D.ages, N = AG.length;
-  const nf = (n) => Math.round(n).toLocaleString('ko-KR');
-  const pct = (a, b, d = 1) => ((a / b) * 100).toFixed(d);
+  const D = window.UNYEON, F = D.dongs.features, P = F.map((x) => x.properties), AG = D.ages, N = AG.length;
+  const M = D.mig, MA = M.ages, MN = MA.length, SZ = D.hh.sizes;
+  const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  const nf = (n) => (n == null ? '—' : Math.round(n).toLocaleString('ko-KR'));
+  const sn = (n) => (n > 0 ? '+' : n < 0 ? '−' : '') + nf(Math.abs(n));
+  const pct = (a, b, d = 1) => (b ? ((a / b) * 100).toFixed(d) : '—');
   const per = `${D.period.slice(0, 4)}년 ${Number(D.period.slice(4))}월`;
-  const sum = (a) => a.reduce((s, v) => s + v, 0);
+  const sido2 = (s) => s.replace(/(특별시|광역시|특별자치도|도)$/, '');
+  const sggName = (p) => `${sido2(p.sido)} ${p.sgg}`;
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+
+  // ── 공통: 툴팁, 가로 막대 목록
+  function tipAt(box, el, html, dy = 40) {
+    const tip = box.querySelector('.tip'); tip.innerHTML = html;
+    const b = box.getBoundingClientRect(), r = el.getBoundingClientRect();
+    tip.style.left = Math.max(0, Math.min(b.width - 200, r.left - b.left + r.width / 2 - 90)) + 'px';
+    tip.style.top = r.top - b.top - dy + 'px'; tip.style.opacity = 1;
+  }
+  const tipOff = (box) => (box.querySelector('.tip').style.opacity = 0);
+  const hbars = (rows, max) => rows.map((r) => `<div class="hbar${r.code ? ' clickable' : ''}"${r.code ? ` data-code="${r.code}"` : ''}><span class="lab" title="${esc(r.lab)}">${r.lab}${r.sub ? ` <small style="color:var(--muted)">${r.sub}</small>` : ''}</span><span class="track"><span class="bar" style="width:${(r.v / max) * 100}%"></span></span><span class="val">${r.val}</span></div>`).join('');
+  const bindRows = (el) => el.querySelectorAll('[data-code]').forEach((x) => (x.onclick = () => select(x.dataset.code, true)));
 
   // ── 반경 합계 (직접 집계)
-  const tot = { t: 0, m: 0, f: 0, am: Array(N).fill(0), af: Array(N).fill(0) };
-  for (const x of F) { const p = x.properties; tot.t += p.t; tot.m += p.tm; tot.f += p.tf; p.m.forEach((v, i) => (tot.am[i] += v)); p.f.forEach((v, i) => (tot.af[i] += v)); }
-  const sggName = (p) => `${p.sido.replace(/(특별시|광역시|도)$/, '')} ${p.sgg}`;
+  const tot = { t: 0, m: 0, f: 0, am: Array(N).fill(0), af: Array(N).fill(0), hh: 0, hs: Array(SZ.length).fill(0), hsNull: Array(SZ.length).fill(0) };
+  for (const p of P) {
+    tot.t += p.t; tot.m += p.tm; tot.f += p.tf; p.m.forEach((v, i) => (tot.am[i] += v)); p.f.forEach((v, i) => (tot.af[i] += v));
+    tot.hh += p.hh; p.hs.forEach((v, i) => (v == null ? tot.hsNull[i]++ : (tot.hs[i] += v)));
+  }
   const ageMax = (m, f) => { let k = 0; for (let i = 1; i < N; i++) if (m[i] + f[i] > m[k] + f[k]) k = i; return k; };
+  document.getElementById('sub').textContent = `행정동 ${F.length}곳 · 인구 ${per} 주민등록 · 가구 ${D.hh.year} 인구총조사 · 이동 ${M.year}년`;
 
-  document.getElementById('sub').textContent = `${per} 기준 · 행정동 ${F.length}곳 · 인천·경기·서울 ${new Set(F.map((x) => sggName(x.properties))).size}개 시군구`;
-  const big = ageMax(tot.am, tot.af);
-  document.getElementById('tiles').innerHTML = `
-    <div class="tile wide"><div class="k">총인구</div><div class="v">${nf(tot.t)}<small>명</small></div></div>
-    <div class="tile"><div class="k">남자</div><div class="v">${nf(tot.m)}<small>명</small></div></div>
-    <div class="tile"><div class="k">여자</div><div class="v">${nf(tot.f)}<small>명</small></div></div>
-    <div class="tile"><div class="k">성비 (여자 100명당 남자)</div><div class="v">${(tot.m / tot.f * 100).toFixed(1)}</div></div>
-    <div class="tile"><div class="k">가장 많은 연령대</div><div class="v">${AG[big]}<small>세 · ${pct(tot.am[big] + tot.af[big], tot.t)}%</small></div></div>`;
-
-  // ── 큰 피라미드 (패널)
-  function bigPyramid(el, m, f, t) {
-    const W = 340, rowH = 11, top = 4, H = top + N * rowH + 22, mid = W / 2, lab = 34, half = mid - lab / 2 - 14;
+  // ── 피라미드(패널)
+  function pyramid(el, m, f, t, W = 340) {
+    const rowH = 11, top = 4, H = top + N * rowH + 22, mid = W / 2, lab = 34, half = mid - lab / 2 - 14;
     const max = Math.max(...m, ...f) / t * 100, step = max > 6 ? 2 : max > 3 ? 1 : 0.5, sc = Math.ceil(max / step) * step;
-    const x = (v) => (v / t * 100) / sc * half;
+    const x = (v) => (v / t * 100) / sc * half, L = mid - lab / 2, R = mid + lab / 2;
     let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="성·연령별 인구 피라미드">`;
-    for (let v = step; v <= sc + 1e-9; v += step) { const dx = v / sc * half; s += `<line x1="${mid - lab / 2 - dx}" x2="${mid - lab / 2 - dx}" y1="${top}" y2="${top + N * rowH}" stroke="var(--grid)"/><line x1="${mid + lab / 2 + dx}" x2="${mid + lab / 2 + dx}" y1="${top}" y2="${top + N * rowH}" stroke="var(--grid)"/><text x="${mid - lab / 2 - dx}" y="${H - 6}" text-anchor="middle">${v}%</text><text x="${mid + lab / 2 + dx}" y="${H - 6}" text-anchor="middle">${v}%</text>`; }
+    for (let v = step; v <= sc + 1e-9; v += step) { const dx = v / sc * half; s += `<line x1="${L - dx}" x2="${L - dx}" y1="${top}" y2="${top + N * rowH}" stroke="var(--grid)"/><line x1="${R + dx}" x2="${R + dx}" y1="${top}" y2="${top + N * rowH}" stroke="var(--grid)"/><text x="${L - dx}" y="${H - 6}" text-anchor="middle">${v}%</text><text x="${R + dx}" y="${H - 6}" text-anchor="middle">${v}%</text>`; }
     for (let i = 0; i < N; i++) {
       const y = top + (N - 1 - i) * rowH, h = rowH - 2, wm = x(m[i]), wf = x(f[i]), r = Math.min(3, h / 2);
-      const L = mid - lab / 2, R = mid + lab / 2;
       if (wm > 0) s += `<path d="M${L},${y} H${L - wm + r} Q${L - wm},${y} ${L - wm},${y + r} V${y + h - r} Q${L - wm},${y + h} ${L - wm + r},${y + h} H${L} Z" fill="var(--male)"/>`;
       if (wf > 0) s += `<path d="M${R},${y} H${R + wf - r} Q${R + wf},${y} ${R + wf},${y + r} V${y + h - r} Q${R + wf},${y + h} ${R + wf - r},${y + h} H${R} Z" fill="var(--female)"/>`;
       if (i % 2 === 0) s += `<text x="${mid}" y="${y + h - 1}" text-anchor="middle">${AG[i].replace('–', '-')}</text>`;
       s += `<rect class="hit" data-i="${i}" x="0" y="${y - 1}" width="${W}" height="${rowH}" fill="transparent"/>`;
     }
-    s += `<line x1="${mid - lab / 2}" x2="${mid - lab / 2}" y1="${top}" y2="${top + N * rowH}" stroke="var(--axis)"/><line x1="${mid + lab / 2}" x2="${mid + lab / 2}" y1="${top}" y2="${top + N * rowH}" stroke="var(--axis)"/></svg>`;
-    el.querySelector('svg')?.remove();
-    el.insertAdjacentHTML('afterbegin', s);
-    const tip = el.querySelector('.tip');
+    s += `<line x1="${L}" x2="${L}" y1="${top}" y2="${top + N * rowH}" stroke="var(--axis)"/><line x1="${R}" x2="${R}" y1="${top}" y2="${top + N * rowH}" stroke="var(--axis)"/></svg>`;
+    el.querySelector('svg')?.remove(); el.insertAdjacentHTML('afterbegin', s);
     el.querySelectorAll('.hit').forEach((r) => {
-      r.addEventListener('mouseenter', () => {
-        const i = +r.dataset.i;
-        tip.innerHTML = `<b>${AG[i]}세</b><br>남 ${nf(m[i])}명 (${pct(m[i], t)}%) · 여 ${nf(f[i])}명 (${pct(f[i], t)}%)`;
-        const box = el.getBoundingClientRect(), rb = r.getBoundingClientRect();
-        tip.style.left = Math.max(0, box.width / 2 - 110) + 'px'; tip.style.top = rb.top - box.top - 42 + 'px'; tip.style.opacity = 1;
-      });
-      r.addEventListener('mouseleave', () => (tip.style.opacity = 0));
+      r.onmouseenter = () => { const i = +r.dataset.i; tipAt(el, r, `<b>${AG[i]}세</b><br>남 ${nf(m[i])}명 (${pct(m[i], t)}%) · 여 ${nf(f[i])}명 (${pct(f[i], t)}%)`, 42); };
+      r.onmouseleave = () => tipOff(el);
     });
   }
-  bigPyramid(document.getElementById('pyrAll'), tot.am, tot.af, tot.t);
+  // 가구원수 세로 막대
+  function hhChart(el, hs, total, W = 340) {
+    const H = 150, padL = 40, padB = 22, padT = 18, iw = W - padL, ih = H - padB - padT, n = hs.length;
+    const vals = hs.map((v) => v ?? 0), max = Math.max(...vals, 1), step = niceStep(max / 3), topV = Math.ceil(max / step) * step, bw = iw / n;
+    let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="가구원수별 일반가구">`;
+    for (let v = 0; v <= topV; v += step) { const y = padT + ih - (v / topV) * ih; s += `<line x1="${padL}" x2="${W}" y1="${y}" y2="${y}" stroke="var(${v ? '--grid' : '--axis'})"/><text x="${padL - 6}" y="${y + 3.5}" text-anchor="end">${nf(v)}</text>`; }
+    hs.forEach((v, i) => {
+      const h = ((v ?? 0) / topV) * ih, x = padL + i * bw + 6, w = bw - 12, y = padT + ih - h, r = Math.min(4, h);
+      if (h > 0) s += `<path d="M${x},${padT + ih} V${y + r} Q${x},${y} ${x + r},${y} H${x + w - r} Q${x + w},${y} ${x + w},${y + r} V${padT + ih} Z" fill="var(--bar)" opacity=".75"/>`;
+      s += `<text x="${x + w / 2}" y="${y - 4}" text-anchor="middle" style="fill:var(--ink-2)">${v == null ? '비공개' : pct(v, total) + '%'}</text><text x="${x + w / 2}" y="${H - 6}" text-anchor="middle">${SZ[i]}</text>`;
+      s += `<rect class="hit" data-i="${i}" x="${padL + i * bw}" y="${padT}" width="${bw}" height="${ih}" fill="transparent"/>`;
+    });
+    el.querySelector('svg')?.remove(); el.insertAdjacentHTML('afterbegin', s + '</svg>');
+    el.querySelectorAll('.hit').forEach((r) => {
+      r.onmouseenter = () => { const i = +r.dataset.i; tipAt(el, r, `<b>${SZ[i]} 가구</b> · ${hs[i] == null ? '비공개(X)' : `${nf(hs[i])}가구 (${pct(hs[i], total)}%)`}`, 10); };
+      r.onmouseleave = () => tipOff(el);
+    });
+  }
+  function niceStep(x) { const p = 10 ** Math.floor(Math.log10(x || 1)); const m = x / p; return (m <= 1 ? 1 : m <= 2 ? 2 : m <= 5 ? 5 : 10) * p; }
 
-  // ── 시군구 막대
-  const sg = {};
-  for (const x of F) { const k = sggName(x.properties); (sg[k] ??= { t: 0, n: 0 }); sg[k].t += x.properties.t; sg[k].n++; }
-  const sgRows = Object.entries(sg).sort((a, b) => b[1].t - a[1].t), sgMax = sgRows[0][1].t;
-  document.getElementById('sgg').innerHTML = sgRows.map(([k, v]) => `<div class="hbar"><span class="lab" title="${k}">${k} <small style="color:var(--muted)">${v.n}동</small></span><span class="track"><span class="bar" style="width:${v.t / sgMax * 100}%"></span></span><span class="val">${nf(v.t)}</span></div>`).join('');
+  // ── 정렬 가능한 표
+  function sortTable(el, cols, rows, sortI = 1, dir = -1, foot = '') {
+    const draw = () => {
+      const rs = rows.slice().sort((a, b) => { const va = cols[sortI][1](a), vb = cols[sortI][1](b); return ((va ?? -1) > (vb ?? -1) ? 1 : (va ?? -1) < (vb ?? -1) ? -1 : 0) * dir; });
+      el.innerHTML = `<thead><tr>${cols.map(([h], i) => `<th data-i="${i}"${i === sortI ? ` data-arrow="${dir > 0 ? '↑' : '↓'}"` : ''}>${h}</th>`).join('')}</tr></thead><tbody>` +
+        rs.map((p) => `<tr data-c="${p.code}">${cols.map((c) => `<td>${c[2](p)}</td>`).join('')}</tr>`).join('') + `</tbody>${foot}`;
+      el.querySelectorAll('th[data-i]').forEach((th) => (th.onclick = () => { const i = +th.dataset.i; dir = i === sortI ? -dir : i === 0 ? 1 : -1; sortI = i; draw(); }));
+      el.querySelectorAll('tbody tr').forEach((tr) => (tr.onclick = () => select(tr.dataset.c, true)));
+    };
+    draw();
+  }
+  const dongLab = (p) => `${p.name} <small style="color:var(--muted)">${p.sgg}</small>`;
 
-  // ── 지도
-  const map = L.map('map', { preferCanvas: false, zoomSnap: 0.25, minZoom: 10, maxZoom: 18 });
+  // ══ 탭 1: 인구구조
+  const big = ageMax(tot.am, tot.af);
+  document.getElementById('tilesPop').innerHTML = `
+    <div class="tile wide"><div class="k">총인구 (${per} 주민등록)</div><div class="v">${nf(tot.t)}<small>명</small></div></div>
+    <div class="tile"><div class="k">남자</div><div class="v">${nf(tot.m)}<small>명</small></div></div>
+    <div class="tile"><div class="k">여자</div><div class="v">${nf(tot.f)}<small>명</small></div></div>
+    <div class="tile"><div class="k">성비 (여자 100명당 남자)</div><div class="v">${(tot.m / tot.f * 100).toFixed(1)}</div></div>
+    <div class="tile"><div class="k">가장 많은 5세 구간</div><div class="v">${AG[big]}<small>세 · ${pct(tot.am[big] + tot.af[big], tot.t)}%</small></div></div>`;
+  pyramid(document.getElementById('pyrAll'), tot.am, tot.af, tot.t);
+  const sgPop = {};
+  for (const p of P) { const k = sggName(p); (sgPop[k] ??= { t: 0, n: 0, hh: 0, hs: Array(SZ.length).fill(0), hsNull: 0 }); const o = sgPop[k]; o.t += p.t; o.n++; o.hh += p.hh; p.hs.forEach((v, i) => (v == null ? o.hsNull++ : (o.hs[i] += v))); }
+  const sgRows = Object.entries(sgPop).sort((a, b) => b[1].t - a[1].t);
+  document.getElementById('sggPop').innerHTML = hbars(sgRows.map(([k, v]) => ({ lab: k, sub: v.n + '동', v: v.t, val: nf(v.t) })), sgRows[0][1].t);
+  sortTable(document.getElementById('tblPop'), [
+    ['행정동', (p) => p.name, dongLab], ['거리km', (p) => p.dist, (p) => p.dist.toFixed(1)], ['총인구', (p) => p.t, (p) => nf(p.t)],
+    ['남', (p) => p.tm, (p) => nf(p.tm)], ['여', (p) => p.tf, (p) => nf(p.tf)], ['성비', (p) => p.tm / p.tf, (p) => (p.tm / p.tf * 100).toFixed(1)],
+  ], P, 2, -1, `<tfoot><tr><th>합계</th><th></th><th>${nf(tot.t)}</th><th>${nf(tot.m)}</th><th>${nf(tot.f)}</th><th>${(tot.m / tot.f * 100).toFixed(1)}</th></tr></tfoot>`);
+
+  // ══ 탭 2: 가구원수
+  document.getElementById('tilesHh').innerHTML = `
+    <div class="tile wide"><div class="k">일반가구 (${D.hh.year} 인구총조사)</div><div class="v">${nf(tot.hh)}<small>가구</small></div></div>
+    ${SZ.slice(0, 4).map((s, i) => `<div class="tile"><div class="k">${s} 가구</div><div class="v">${pct(tot.hs[i], tot.hh)}<small>% · ${nf(tot.hs[i])}</small></div></div>`).join('')}`;
+  hhChart(document.getElementById('hhAll'), tot.hs, tot.hh);
+  document.getElementById('tblHhSgg').innerHTML = `<thead><tr><th>시군구</th><th>일반가구</th>${SZ.map((s) => `<th>${s.replace('인 이상', '+')}</th>`).join('')}</tr></thead><tbody>` +
+    sgRows.map(([k, v]) => `<tr style="cursor:default"><td>${k.replace(/^\S+ /, '')}</td><td>${nf(v.hh)}</td>${v.hs.map((x, i) => `<td>${i === SZ.length - 1 && v.hsNull ? pct(x, v.hh) + '*' : pct(x, v.hh)}</td>`).join('')}</tr>`).join('') + '</tbody>';
+  sortTable(document.getElementById('tblHh'), [
+    ['행정동', (p) => p.name, dongLab], ['일반가구', (p) => p.hh, (p) => nf(p.hh)],
+    ...SZ.map((s, i) => [s + '%', (p) => (p.hs[i] == null ? null : p.hs[i] / p.hh), (p) => (p.hs[i] == null ? '비공개' : pct(p.hs[i], p.hh))]),
+  ], P, 1, -1);
+
+  // ══ 탭 3: 1인가구
+  const oneRate = (p) => p.hs[0] / p.hh;
+  const ranked = P.slice().sort((a, b) => oneRate(b) - oneRate(a));
+  const med = (() => { const r = ranked.map(oneRate); const n = r.length; return n % 2 ? r[(n - 1) / 2] : (r[n / 2 - 1] + r[n / 2]) / 2; })();
+  document.getElementById('tilesOne').innerHTML = `
+    <div class="tile wide"><div class="k">1인가구 (${D.hh.year} 인구총조사, 일반가구 중)</div><div class="v">${nf(tot.hs[0])}<small>가구 · ${pct(tot.hs[0], tot.hh)}%</small></div></div>
+    <div class="tile"><div class="k">가장 높은 동</div><div class="v">${(oneRate(ranked[0]) * 100).toFixed(1)}<small>% · ${ranked[0].name}</small></div></div>
+    <div class="tile"><div class="k">가장 낮은 동</div><div class="v">${(oneRate(ranked.at(-1)) * 100).toFixed(1)}<small>% · ${ranked.at(-1).name}</small></div></div>`;
+  const sgOne = sgRows.map(([k, v]) => ({ lab: k, v: v.hs[0] / v.hh, val: `${pct(v.hs[0], v.hh)}% <small>${nf(v.hs[0])}</small>` })).sort((a, b) => b.v - a.v);
+  document.getElementById('sggOne').innerHTML = hbars(sgOne, sgOne[0].v);
+  const oneRow = (p) => ({ code: p.code, lab: p.name, sub: p.sgg, v: oneRate(p), val: `${(oneRate(p) * 100).toFixed(1)}% <small>${nf(p.hs[0])}</small>` });
+  document.getElementById('oneTop').innerHTML = hbars(ranked.slice(0, 10).map(oneRow), oneRate(ranked[0]));
+  document.getElementById('oneBot').innerHTML = hbars(ranked.slice(-5).reverse().map(oneRow), oneRate(ranked[0]));
+  ['oneTop', 'oneBot', 'sggPop'].forEach((id) => bindRows(document.getElementById(id)));
+  // 분포: 5%p 구간 막대 (행정동 수)
+  (() => {
+    const el = document.getElementById('oneHist'), bins = []; for (let b = 0; b < 70; b += 5) bins.push(b);
+    const cnt = bins.map((b) => P.filter((p) => oneRate(p) * 100 >= b && oneRate(p) * 100 < b + 5).length);
+    const W = 340, H = 130, padL = 28, padB = 22, padT = 8, iw = W - padL, ih = H - padB - padT, bw = iw / bins.length;
+    const max = Math.max(...cnt), step = niceStep(max / 3), topV = Math.ceil(max / step) * step;
+    let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="1인가구 비율 분포">`;
+    for (let v = 0; v <= topV; v += step) { const y = padT + ih - (v / topV) * ih; s += `<line x1="${padL}" x2="${W}" y1="${y}" y2="${y}" stroke="var(${v ? '--grid' : '--axis'})"/><text x="${padL - 6}" y="${y + 3.5}" text-anchor="end">${v}</text>`; }
+    const mx = padL + (med * 100 / 70) * iw;
+    bins.forEach((b, i) => {
+      const h = (cnt[i] / topV) * ih, x = padL + i * bw + 1, w = bw - 2, y = padT + ih - h, r = Math.min(3, h);
+      if (h > 0) s += `<path d="M${x},${padT + ih} V${y + r} Q${x},${y} ${x + r},${y} H${x + w - r} Q${x + w},${y} ${x + w},${y + r} V${padT + ih} Z" fill="var(--bar)" opacity=".7"/>`;
+      if (i % 2 === 0) s += `<text x="${padL + i * bw}" y="${H - 6}" text-anchor="middle">${b}%</text>`;
+      s += `<rect class="hit" data-i="${i}" x="${padL + i * bw}" y="${padT}" width="${bw}" height="${ih}" fill="transparent"/>`;
+    });
+    s += `<line x1="${mx}" x2="${mx}" y1="${padT}" y2="${padT + ih}" stroke="var(--ink)" stroke-dasharray="3 3"/><text x="${mx + 4}" y="${padT + 9}" style="fill:var(--ink-2)">중앙값 ${(med * 100).toFixed(1)}%</text></svg>`;
+    el.insertAdjacentHTML('afterbegin', s);
+    el.querySelectorAll('.hit').forEach((r) => { r.onmouseenter = () => { const i = +r.dataset.i; tipAt(el, r, `1인가구 비율 <b>${bins[i]}~${bins[i] + 5}%</b> · ${cnt[i]}개 동`, 10); }; r.onmouseleave = () => tipOff(el); });
+  })();
+
+  // ── 탭 전환
+  const tabs = document.querySelectorAll('.tab');
+  function setTab(t) {
+    tabs.forEach((b) => b.setAttribute('aria-selected', String(b.dataset.t === t)));
+    for (const id of ['pop', 'hh', 'one']) document.getElementById('tp-' + id).hidden = id !== t;
+    try { history.replaceState(null, '', location.pathname + (t === 'pop' ? '' : '#' + t)); } catch (e) {}
+  }
+  tabs.forEach((b) => (b.onclick = () => setTab(b.dataset.t)));
+  setTab(['hh', 'one'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'pop');
+
+  // ══ 지도
+  const map = L.map('map', { zoomSnap: 0.25, minZoom: 9, maxZoom: 18 });
+  // 도형을 붙이기 전에 화면 범위를 먼저 정한다
+  map.fitBounds(L.latLng(D.station.lat, D.station.lon).toBounds(D.radius_km * 2000), { padding: [8, 8] });
   L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18, className: 'tiles-gray', attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> 기여자' }).addTo(map);
   const S = D.station;
-  L.circle([S.lat, S.lon], { radius: D.radius_km * 1000, color: '#e34948', weight: 2, dashArray: '6 5', fill: false, interactive: false }).addTo(map);
+
+  // 분기형 색: 가운데 회색 → 파랑(유입·전입) / 빨강(유출·전출)
+  const hex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+  const mix = (a, b, t) => { const A = hex(a), B = hex(b); return '#' + A.map((v, i) => Math.round(v + (B[i] - v) * t).toString(16).padStart(2, '0')).join(''); };
+  const BLUE = ['#f0efec', '#9ec5f4', '#2a78d6', '#184f95'], RED = ['#f0efec', '#f4b0ae', '#e34948', '#a32c2b'];
+  const ramp = (arr, t) => { t = Math.max(0, Math.min(1, t)); const k = t * (arr.length - 1), i = Math.min(arr.length - 2, Math.floor(k)); return mix(arr[i], arr[i + 1], k - i); };
+  const div = (v, max) => (v >= 0 ? ramp(BLUE, Math.sqrt(v / max)) : ramp(RED, Math.sqrt(-v / max)));
+
+  let migMode = 'net', selSgg = null;
+  const mg = M.sgg, mgKeys = Object.keys(mg), mgOk = mgKeys.filter((k) => !mg[k].missing);
+  const val = (o, mode) => (mode === 'net' ? o.total.net : mode === 'in' ? o.total.in : o.total.out);
+  const netMax = Math.max(...mgOk.map((k) => Math.abs(mg[k].total.net)));
+  const flowMax = Math.max(...mgOk.map((k) => Math.max(mg[k].total.in, mg[k].total.out)));
+
+  const sggLayer = L.geoJSON(D.sggAreas, { interactive: false, style: (f) => sggStyle(f.properties.k) }).addTo(map);
+  function sggStyle(k) {
+    const o = mg[k]; if (!o || o.missing) return { stroke: false, fillColor: '#b9b8b1', fillOpacity: 0.25 };
+    const v = val(o, migMode);
+    const fill = migMode === 'net' ? div(v, netMax) : ramp(migMode === 'in' ? BLUE : RED, v / flowMax);
+    return { stroke: true, color: fill, weight: 0.6, opacity: 0.9, fillColor: fill, fillOpacity: selSgg && selSgg !== k ? 0.12 : 0.36 };
+  }
+  L.circle([S.lat, S.lon], { radius: D.radius_km * 1000, color: '#0b0b0b', weight: 1.8, dashArray: '6 5', fill: false, interactive: false }).addTo(map);
+  let selDong = null;
   const dongLayer = L.geoJSON(D.dongs, {
-    style: () => ({ color: '#52514e', weight: 0.8, opacity: 0.7, fillColor: '#ffffff', fillOpacity: 0.05 }),
+    style: () => ({ color: '#52514e', weight: 0.6, opacity: 0.55, fillOpacity: 0 }),
     onEachFeature(f, layer) {
       const p = f.properties;
-      layer.bindTooltip(() => `<div class="t">${p.name}</div><div style="color:var(--muted);margin-bottom:3px">${sggName(p)} · 운연역에서 ${p.dist.toFixed(1)}km</div>` +
-        [['총인구', nf(p.t) + '명'], ['남 / 여', `${nf(p.tm)} / ${nf(p.tf)}`], ['성비', (p.tm / p.tf * 100).toFixed(1)], ['면적', p.area.toFixed(2) + '㎢']].map(([k, v]) => `<div class="r"><span>${k}</span><span>${v}</span></div>`).join(''), { className: 'btip', sticky: true });
-      layer.on('mouseover', () => layer.setStyle({ weight: 2, color: '#0b0b0b', fillOpacity: 0.12 }));
-      layer.on('mouseout', () => layer.setStyle({ color: '#52514e', weight: sel === p.code ? 2.5 : 0.8, fillOpacity: sel === p.code ? 0.15 : 0.05 }));
+      layer.bindTooltip(() => `<div class="t">${p.name}</div><div style="color:var(--muted);margin-bottom:3px">${sggName(p)} · 운연역 ${p.dist.toFixed(1)}km</div>` +
+        [['총인구', nf(p.t) + '명'], ['일반가구', nf(p.hh)], ['1인가구', `${pct(p.hs[0], p.hh)}%`]].map(([k, v]) => `<div class="r"><span>${k}</span><span>${v}</span></div>`).join(''), { className: 'btip', sticky: true });
+      layer.on('mouseover', () => layer.setStyle({ weight: 2, color: '#0b0b0b', opacity: 1 }));
+      layer.on('mouseout', () => layer.setStyle(dongStyle(p.code)));
       layer.on('click', () => select(p.code));
     },
   }).addTo(map);
-  L.marker([S.lat, S.lon], { icon: L.divIcon({ className: '', html: '<div class="stn"></div>', iconSize: [14, 14] }), zIndexOffset: 2000, interactive: false })
+  const dongStyle = (c) => (c === selDong ? { color: '#0b0b0b', weight: 2.5, opacity: 1, fillColor: '#0b0b0b', fillOpacity: 0.08 } : { color: '#52514e', weight: 0.6, opacity: 0.55, fillOpacity: 0 });
+  L.marker([S.lat, S.lon], { icon: L.divIcon({ className: '', html: '<div class="stn"></div>', iconSize: [14, 14] }), zIndexOffset: 3000, interactive: false })
     .bindTooltip('운연역', { permanent: true, direction: 'right', offset: [8, 0], className: 'stnlab' }).addTo(map);
-  map.fitBounds(L.latLng(S.lat, S.lon).toBounds(D.radius_km * 2000), { padding: [10, 10] });
 
-  // ── 지도 위 작은 피라미드: 축척은 '구성비'(동마다 자기 인구 대비 %) 또는 '인원'(사람 수), 모든 동 같은 축
-  let scaleMode = 'share';
-  const PW = 52, PH = 44, NM = 11; // 카드 크기(px)
-  const shareMax = Math.max(...F.flatMap((x) => x.properties.m.concat(x.properties.f).map((v) => v / x.properties.t)));
-  const absMax = Math.max(...F.flatMap((x) => x.properties.m.concat(x.properties.f)));
-  function miniSVG(p) {
-    const half = PW / 2 - 3, rh = (PH - 4) / N;
-    const w = (v) => (scaleMode === 'share' ? v / p.t / shareMax : v / absMax) * half;
-    let s = `<svg width="${PW}" height="${PH}" viewBox="0 0 ${PW} ${PH}" aria-hidden="true">`;
-    for (let i = 0; i < N; i++) {
-      const y = 2 + (N - 1 - i) * rh;
-      s += `<rect x="${PW / 2 - w(p.m[i])}" y="${y}" width="${w(p.m[i])}" height="${rh - 0.4}" fill="${css('--male')}"/><rect x="${PW / 2}" y="${y}" width="${w(p.f[i])}" height="${rh - 0.4}" fill="${css('--female')}"/>`;
+  // ── 시군구 카드: 연령별 막대 (같은 지표는 모든 시군구 같은 축)
+  const CW = 150, CH = 54;
+  const ageMaxNet = Math.max(...mgOk.flatMap((k) => mg[k].net.map(Math.abs)));
+  const ageMaxFlow = Math.max(...mgOk.flatMap((k) => mg[k].in.concat(mg[k].out)));
+  function cardSVG(o) {
+    const bw = CW / MN;
+    let s = `<svg width="${CW}" height="${CH}" viewBox="0 0 ${CW} ${CH}" aria-hidden="true">`;
+    if (migMode === 'net') {
+      const mid = CH / 2, half = CH / 2 - 1;
+      o.net.forEach((v, i) => { const h = Math.abs(v) / ageMaxNet * half; s += `<rect x="${i * bw + 0.5}" y="${v >= 0 ? mid - h : mid}" width="${bw - 1}" height="${Math.max(h, 0.5)}" fill="${v >= 0 ? css('--in') : css('--out')}"/>`; });
+      s += `<line x1="0" x2="${CW}" y1="${mid}" y2="${mid}" stroke="#898781" stroke-width="0.6"/>`;
+    } else {
+      const arr = migMode === 'in' ? o.in : o.out, c = migMode === 'in' ? css('--in') : css('--out');
+      arr.forEach((v, i) => { const h = v / ageMaxFlow * (CH - 2); s += `<rect x="${i * bw + 0.5}" y="${CH - 1 - h}" width="${bw - 1}" height="${h}" fill="${c}"/>`; });
+      s += `<line x1="0" x2="${CW}" y1="${CH - 1}" y2="${CH - 1}" stroke="#898781" stroke-width="0.6"/>`;
     }
-    return s + `<line x1="${PW / 2}" x2="${PW / 2}" y1="1" y2="${PH - 1}" stroke="#c3c2b7" stroke-width="0.6"/></svg>`;
+    // 20대·40대 눈금(가독용)
+    [4, 8].forEach((i) => (s += `<line x1="${i * bw}" x2="${i * bw}" y1="0" y2="${CH}" stroke="#c3c2b7" stroke-width="0.5" stroke-dasharray="1.5 1.5"/>`));
+    return s + '</svg>';
   }
-  const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
-  const markers = F.map((x) => {
-    const p = x.properties;
-    const m = L.marker([p.c[1], p.c[0]], { icon: L.divIcon({ className: '', html: '', iconSize: [PW, PH + NM] }), riseOnHover: true });
-    m.on('click', () => select(p.code));
-    m.bindTooltip(() => `<div class="t">${p.name}</div><div style="color:var(--muted)">${sggName(p)} · 총 ${nf(p.t)}명</div>`, { className: 'btip', direction: 'top', offset: [0, -(PH + NM) / 2] });
-    m.p = p; m.addTo(map);
-    return m;
+  // 카드 위치: 반경 안 행정동 중심점의 평균(시군구가 원 밖으로 넓어도 카드는 원 안에)
+  const cardPos = {};
+  for (const k of mgKeys) { const ps = P.filter((p) => p.mk === k); if (ps.length) cardPos[k] = [ps.reduce((s, p) => s + p.c[1], 0) / ps.length, ps.reduce((s, p) => s + p.c[0], 0) / ps.length]; }
+  const sggMarkers = mgKeys.filter((k) => cardPos[k]).map((k) => {
+    const m = L.marker(cardPos[k], { icon: L.divIcon({ className: '', html: '', iconSize: [CW + 14, CH + 26] }), zIndexOffset: 2000 });
+    m.on('click', () => selectSgg(selSgg === k ? null : k));
+    m.k = k; m.addTo(map); return m;
   });
-  function paintMarkers() {
-    for (const m of markers) m.big = `<div class="mpyr${sel === m.p.code ? ' sel' : ''}" style="width:${PW + 2}px"><div class="nm">${m.p.name}</div>${miniSVG(m.p)}</div>`;
-    layoutMarkers();
-  }
-  // 겹치면 인구가 많은 동을 먼저 보여주고 나머지는 점으로
-  function layoutMarkers() {
-    const placed = [];
-    const order = markers.slice().sort((a, b) => (b.p.code === sel) - (a.p.code === sel) || b.p.t - a.p.t);
-    for (const m of order) {
-      const pt = map.latLngToContainerPoint(m.getLatLng());
-      const box = [pt.x - PW / 2 - 1, pt.y - (PH + NM) / 2 - 1, pt.x + PW / 2 + 1, pt.y + (PH + NM) / 2 + 1];
-      const hit = placed.some((b) => !(box[2] < b[0] || box[0] > b[2] || box[3] < b[1] || box[1] > b[3]));
-      const show = !hit;
-      if (show) placed.push(box);
-      if (m.shown !== show || show) {
-        m.setIcon(L.divIcon({ className: '', html: show ? m.big : '<div class="mdot"></div>', iconSize: show ? [PW + 2, PH + NM + 2] : [8, 8] }));
-        m.setZIndexOffset(show ? 1000 + Math.round(m.p.t / 100) : 0);
-        m.shown = show;
-      }
+  function paintCards() {
+    for (const m of sggMarkers) {
+      const o = mg[m.k];
+      const inner = o.missing ? `<div class="nm">${o.name}</div><div style="font-size:10.5px;color:#52514e;width:${CW}px;white-space:normal">${M.year}년 이동 자료 없음 (2026년 신설)</div>`
+        : `<div class="nm">${o.name.replace(/^\S+ /, '')}<span style="color:${migMode === 'net' ? (o.total.net >= 0 ? '#184f95' : '#a32c2b') : '#0b0b0b'}">${migMode === 'net' ? sn(o.total.net) : nf(val(o, migMode))}</span></div>${cardSVG(o)}`;
+      m.setIcon(L.divIcon({ className: '', html: `<div class="scard${selSgg === m.k ? ' sel' : ''}">${inner}</div>`, iconSize: [CW + 14, o.missing ? 46 : CH + 26] }));
     }
-    document.getElementById('shownNote')?.remove();
-    const n = markers.filter((m) => m.shown).length;
-    attr.innerHTML = `피라미드 ${n}/${markers.length}곳 표시${n < markers.length ? ' · 확대하면 더 보입니다' : ''}`;
   }
-  const attr = L.control({ position: 'topright' });
-  attr.onAdd = () => { const d = L.DomUtil.create('div'); d.style.cssText = 'background:var(--surface);color:var(--ink-2);font-size:12px;padding:4px 9px;border-radius:6px;box-shadow:var(--shadow);border:1px solid var(--border)'; return d; };
-  attr.addTo(map); const attrEl = attr.getContainer(); Object.defineProperty(attr, 'innerHTML', { set: (v) => (attrEl.innerHTML = v) });
-  map.on('zoomend', layoutMarkers);
 
-  document.querySelectorAll('#scaleSeg button').forEach((b) => (b.onclick = () => {
-    scaleMode = b.dataset.v;
-    document.querySelectorAll('#scaleSeg button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
-    paintMarkers();
+  // ── 지도 범례 (왼쪽 아래)
+  const legendCtl = L.control({ position: 'bottomleft' });
+  legendCtl.onAdd = () => { const d = L.DomUtil.create('div'); d.id = 'mapLegend'; d.style.cssText = 'background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow);padding:6px 10px;font-size:12px;color:var(--ink-2)'; return d; };
+  legendCtl.addTo(map);
+  function paintLegend() {
+    const lab = { net: `순이동 (${M.year}년)`, in: `전입 (${M.year}년)`, out: `전출 (${M.year}년)` }[migMode];
+    const g = migMode === 'net' ? `linear-gradient(90deg, ${RED.slice().reverse().join(',')}, ${BLUE.slice(1).join(',')})` : `linear-gradient(90deg, ${(migMode === 'in' ? BLUE : RED).join(',')})`;
+    const ends = migMode === 'net' ? [`유출 ${nf(netMax)}`, '0', `유입 ${nf(netMax)}`] : ['0', '', nf(flowMax)];
+    document.getElementById('mapLegend').innerHTML = `<div style="font-weight:600;color:var(--ink);margin-bottom:3px">${lab} · 시군구 전체</div><div style="height:8px;width:180px;border-radius:4px;background:${g}"></div><div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);width:180px"><span>${ends[0]}</span><span>${ends[1]}</span><span>${ends[2]}</span></div><div style="font-size:11px;color:var(--muted);margin-top:2px">카드 막대: 0~4세 → 80세 이상 (점선 20세·40세)</div>`;
+  }
+  document.querySelectorAll('#migSeg button').forEach((b) => (b.onclick = () => {
+    migMode = b.dataset.v;
+    document.querySelectorAll('#migSeg button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    sggLayer.setStyle((f) => sggStyle(f.properties.k)); paintCards(); paintLegend(); paintMigPanel();
   }));
 
-  // ── 선택 동 상세
-  let sel = null;
+  // ── 하단 분석 패널: 기본은 시군구×연령 순이동 히트맵, 시군구 선택 시 상세
+  const mp = document.getElementById('migpanel');
+  function paintMigPanel() {
+    if (!selSgg) {
+      const rows = mgOk.slice().sort((a, b) => mg[b].total.net - mg[a].total.net);
+      const W = 900, lw = 108, tw = 74, rh = 22, top = 18, cw = (W - lw - tw) / MN, H = top + rows.length * rh + 4;
+      let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="시군구별 연령별 순이동 히트맵">`;
+      MA.forEach((a, j) => (s += `<text x="${lw + j * cw + cw / 2}" y="12" text-anchor="middle">${a.replace('–', '-')}</text>`));
+      s += `<text x="${W - tw / 2}" y="12" text-anchor="middle">순이동 계</text>`;
+      rows.forEach((k, i) => {
+        const o = mg[k], y = top + i * rh;
+        s += `<text class="rowlab" data-k="${k}" x="0" y="${y + rh / 2 + 4}">${o.name}${o.note ? '*' : ''}</text>`;
+        o.net.forEach((v, j) => (s += `<rect class="cell" data-k="${k}" data-j="${j}" x="${lw + j * cw + 1}" y="${y + 1}" width="${cw - 2}" height="${rh - 2}" rx="3" fill="${div(v, ageMaxNet)}"/>`));
+        s += `<text x="${W - 6}" y="${y + rh / 2 + 4}" text-anchor="end" style="fill:${o.total.net >= 0 ? 'var(--in)' : 'var(--out)'};font-weight:600;font-size:11px">${sn(o.total.net)}</text>`;
+      });
+      s += '</svg>';
+      mp.innerHTML = `<div class="head"><h2>시군구 × 연령별 순이동 (${M.year}년, 명)</h2><span class="hint">파랑 = 전입이 많음 · 빨강 = 전출이 많음 · 행이나 지도 카드를 누르면 상세</span></div><div class="hm">${s}<div class="tip"></div></div>
+        <p class="note" style="margin-top:6px">* 부천시는 구별 이동 자료가 없어 시 전체 값입니다. 인천 서해구는 2026년 신설로 ${M.year}년 연간 자료가 없습니다. 이동 통계는 반경 안 일부가 아니라 시군구 전체 값입니다.</p>`;
+      const hm = mp.querySelector('.hm');
+      hm.querySelectorAll('.cell').forEach((c) => {
+        c.onmouseenter = () => { const o = mg[c.dataset.k], j = +c.dataset.j; tipAt(hm, c, `<b>${o.name} · ${MA[j]}세</b><br>전입 ${nf(o.in[j])} · 전출 ${nf(o.out[j])} · 순이동 <b>${sn(o.net[j])}</b>`, 46); };
+        c.onmouseleave = () => tipOff(hm);
+        c.onclick = () => selectSgg(c.dataset.k);
+      });
+      hm.querySelectorAll('.rowlab').forEach((t) => (t.onclick = () => selectSgg(t.dataset.k)));
+      return;
+    }
+    const o = mg[selSgg];
+    mp.innerHTML = `<div class="head"><h2>${o.name} 연령별 인구이동 (${M.year}년)</h2><button class="back">← 전체 히트맵</button></div>
+      <div class="tiles" style="grid-template-columns:repeat(3,1fr);margin-bottom:10px">
+        <div class="tile"><div class="k">전입</div><div class="v">${nf(o.total.in)}<small>명</small></div></div>
+        <div class="tile"><div class="k">전출</div><div class="v">${nf(o.total.out)}<small>명</small></div></div>
+        <div class="tile"><div class="k">순이동</div><div class="v" style="color:${o.total.net >= 0 ? 'var(--in)' : 'var(--out)'}">${sn(o.total.net)}<small>명</small></div></div></div>
+      <div class="cols2"><div><div class="legend"><span><i style="background:var(--in)"></i>전입</span><span><i style="background:var(--out)"></i>전출</span></div><div class="chart" id="mInOut"><div class="tip"></div></div></div>
+      <div><div class="legend"><span>순이동 = 전입 − 전출</span></div><div class="chart" id="mNet"><div class="tip"></div></div></div></div>
+      ${o.note ? `<p class="note" style="margin-top:6px">${o.note}</p>` : ''}`;
+    mp.querySelector('.back').onclick = () => selectSgg(null);
+    inOutChart(document.getElementById('mInOut'), o); netChart(document.getElementById('mNet'), o);
+  }
+  function inOutChart(el, o) {
+    const W = 440, H = 170, padL = 44, padB = 22, padT = 6, iw = W - padL, ih = H - padB - padT, bw = iw / MN;
+    const max = Math.max(...o.in, ...o.out), step = niceStep(max / 3), topV = Math.ceil(max / step) * step;
+    let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="연령별 전입·전출">`;
+    for (let v = 0; v <= topV; v += step) { const y = padT + ih - (v / topV) * ih; s += `<line x1="${padL}" x2="${W}" y1="${y}" y2="${y}" stroke="var(${v ? '--grid' : '--axis'})"/><text x="${padL - 6}" y="${y + 3.5}" text-anchor="end">${nf(v)}</text>`; }
+    MA.forEach((a, i) => {
+      const x0 = padL + i * bw + 1.5, w = (bw - 5) / 2;
+      [[o.in[i], '--in', 0], [o.out[i], '--out', w + 2]].forEach(([v, c, dx]) => { const h = v / topV * ih, y = padT + ih - h, r = Math.min(2, h); if (h > 0) s += `<path d="M${x0 + dx},${padT + ih} V${y + r} Q${x0 + dx},${y} ${x0 + dx + r},${y} H${x0 + dx + w - r} Q${x0 + dx + w},${y} ${x0 + dx + w},${y + r} V${padT + ih} Z" fill="var(${c})"/>`; });
+      if (i % 2 === 0) s += `<text x="${padL + i * bw + bw / 2}" y="${H - 6}" text-anchor="middle">${a.replace('–', '-')}</text>`;
+      s += `<rect class="hit" data-i="${i}" x="${padL + i * bw}" y="${padT}" width="${bw}" height="${ih}" fill="transparent"/>`;
+    });
+    el.insertAdjacentHTML('afterbegin', s + '</svg>');
+    el.querySelectorAll('.hit').forEach((r) => { r.onmouseenter = () => { const i = +r.dataset.i; tipAt(el, r, `<b>${MA[i]}세</b><br>전입 ${nf(o.in[i])} · 전출 ${nf(o.out[i])} · 순이동 ${sn(o.net[i])}`, 10); }; r.onmouseleave = () => tipOff(el); });
+  }
+  function netChart(el, o) {
+    const W = 440, H = 170, padL = 44, padB = 22, padT = 6, iw = W - padL, ih = H - padB - padT, bw = iw / MN;
+    const max = Math.max(...o.net.map(Math.abs), 1), step = niceStep(max / 2), lim = Math.ceil(max / step) * step;
+    const y0 = padT + ih / 2, sc = (ih / 2) / lim;
+    let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="연령별 순이동">`;
+    for (let v = -lim; v <= lim + 1e-9; v += step) { const y = y0 - v * sc; s += `<line x1="${padL}" x2="${W}" y1="${y}" y2="${y}" stroke="var(${v ? '--grid' : '--axis'})"/><text x="${padL - 6}" y="${y + 3.5}" text-anchor="end">${v > 0 ? '+' : ''}${nf(v)}</text>`; }
+    MA.forEach((a, i) => {
+      const v = o.net[i], h = Math.abs(v) * sc, x = padL + i * bw + 3, w = bw - 6, r = Math.min(3, h);
+      if (h > 0) s += v >= 0 ? `<path d="M${x},${y0} V${y0 - h + r} Q${x},${y0 - h} ${x + r},${y0 - h} H${x + w - r} Q${x + w},${y0 - h} ${x + w},${y0 - h + r} V${y0} Z" fill="var(--in)"/>` : `<path d="M${x},${y0} V${y0 + h - r} Q${x},${y0 + h} ${x + r},${y0 + h} H${x + w - r} Q${x + w},${y0 + h} ${x + w},${y0 + h - r} V${y0} Z" fill="var(--out)"/>`;
+      if (i % 2 === 0) s += `<text x="${padL + i * bw + bw / 2}" y="${H - 6}" text-anchor="middle">${a.replace('–', '-')}</text>`;
+      s += `<rect class="hit" data-i="${i}" x="${padL + i * bw}" y="${padT}" width="${bw}" height="${ih}" fill="transparent"/>`;
+    });
+    el.insertAdjacentHTML('afterbegin', s + '</svg>');
+    el.querySelectorAll('.hit').forEach((r) => { r.onmouseenter = () => { const i = +r.dataset.i; tipAt(el, r, `<b>${MA[i]}세</b> 순이동 <b>${sn(o.net[i])}</b><br>전입 ${nf(o.in[i])} · 전출 ${nf(o.out[i])}`, 10); }; r.onmouseleave = () => tipOff(el); });
+  }
+  function selectSgg(k) {
+    if (k && mg[k]?.missing) k = null;
+    selSgg = k;
+    sggLayer.setStyle((f) => sggStyle(f.properties.k)); paintCards(); paintMigPanel();
+  }
+
+  // ── 행정동 피라미드(선택 레이어): 겹치면 인구 많은 동부터, 나머지는 점
+  const PW = 52, PH = 44, NM = 11;
+  const shareMax = Math.max(...P.flatMap((p) => p.m.concat(p.f).map((v) => v / p.t)));
+  const pyrLayer = L.layerGroup();
+  function miniSVG(p) {
+    const half = PW / 2 - 3, rh = (PH - 4) / N, w = (v) => v / p.t / shareMax * half;
+    let s = `<svg width="${PW}" height="${PH}" viewBox="0 0 ${PW} ${PH}" aria-hidden="true">`;
+    for (let i = 0; i < N; i++) { const y = 2 + (N - 1 - i) * rh; s += `<rect x="${PW / 2 - w(p.m[i])}" y="${y}" width="${w(p.m[i])}" height="${rh - 0.4}" fill="${css('--male')}"/><rect x="${PW / 2}" y="${y}" width="${w(p.f[i])}" height="${rh - 0.4}" fill="${css('--female')}"/>`; }
+    return s + `<line x1="${PW / 2}" x2="${PW / 2}" y1="1" y2="${PH - 1}" stroke="#c3c2b7" stroke-width="0.6"/></svg>`;
+  }
+  const pyrMarkers = P.map((p) => {
+    const m = L.marker([p.c[1], p.c[0]], { icon: L.divIcon({ className: '', html: '', iconSize: [PW, PH + NM] }) });
+    m.on('click', () => select(p.code));
+    m.bindTooltip(() => `<div class="t">${p.name}</div><div style="color:var(--muted)">${sggName(p)} · ${nf(p.t)}명</div>`, { className: 'btip', direction: 'top', offset: [0, -(PH + NM) / 2] });
+    m.p = p; m.addTo(pyrLayer); return m;
+  });
+  function layoutPyr() {
+    if (!map.hasLayer(pyrLayer)) return;
+    const placed = [];
+    // 시군구 카드 자리는 비워 둔다
+    for (const m of sggMarkers) { const pt = map.latLngToContainerPoint(m.getLatLng()); placed.push([pt.x - CW / 2 - 8, pt.y - (CH + 26) / 2 - 2, pt.x + CW / 2 + 8, pt.y + (CH + 26) / 2 + 2]); }
+    const order = pyrMarkers.slice().sort((a, b) => (b.p.code === selDong) - (a.p.code === selDong) || b.p.t - a.p.t);
+    for (const m of order) {
+      const pt = map.latLngToContainerPoint(m.getLatLng()), box = [pt.x - PW / 2 - 1, pt.y - (PH + NM) / 2 - 1, pt.x + PW / 2 + 1, pt.y + (PH + NM) / 2 + 1];
+      const show = !placed.some((b) => !(box[2] < b[0] || box[0] > b[2] || box[3] < b[1] || box[1] > b[3]));
+      if (show) placed.push(box);
+      m.setIcon(L.divIcon({ className: '', html: show ? `<div class="mpyr${selDong === m.p.code ? ' sel' : ''}" style="width:${PW + 2}px"><div class="nm">${m.p.name}</div>${miniSVG(m.p)}</div>` : '<div class="mdot"></div>', iconSize: show ? [PW + 2, PH + NM + 2] : [8, 8] }));
+      m.setZIndexOffset(show ? 1000 + Math.round(m.p.t / 100) : 0);
+    }
+  }
+  document.getElementById('pyrToggle').onchange = (e) => { if (e.target.checked) { pyrLayer.addTo(map); layoutPyr(); } else map.removeLayer(pyrLayer); };
+  map.on('zoomend', layoutPyr);
+
+  // ── 행정동 선택 → 패널 상단 상세
   const detail = document.getElementById('detail');
-  function select(code) {
-    sel = code;
-    dongLayer.eachLayer((l) => l.setStyle({ color: l.feature.properties.code === sel ? '#0b0b0b' : '#52514e', weight: l.feature.properties.code === sel ? 2.5 : 0.8, fillOpacity: l.feature.properties.code === sel ? 0.15 : 0.05 }));
-    paintMarkers();
-    if (!code) { detail.innerHTML = '<p class="hint">지도에서 행정동이나 피라미드를 누르면 여기에 자세한 성·연령별 인구가 나옵니다.</p>'; return; }
-    const p = F.find((x) => x.properties.code === code).properties, k = ageMax(p.m, p.f);
+  function select(code, fly) {
+    selDong = code;
+    dongLayer.eachLayer((l) => l.setStyle(dongStyle(l.feature.properties.code)));
+    layoutPyr();
+    if (!code) { detail.hidden = true; return; }
+    const p = P.find((x) => x.code === code), k = ageMax(p.m, p.f);
+    detail.hidden = false;
     detail.innerHTML = `<button class="close" aria-label="닫기">×</button><h3>${p.name}</h3>
-      <p class="meta">${sggName(p)} · 운연역에서 ${p.dist.toFixed(1)}km · 총 ${nf(p.t)}명 (남 ${nf(p.tm)} · 여 ${nf(p.tf)}) · 성비 ${(p.tm / p.tf * 100).toFixed(1)} · 가장 많은 연령대 ${AG[k]}세</p>
-      <div class="pyr" id="pyrOne"><div class="tip"></div></div>`;
+      <p class="meta">${sggName(p)} · 운연역 ${p.dist.toFixed(1)}km · 인구 ${nf(p.t)}명 (남 ${nf(p.tm)} · 여 ${nf(p.tf)}, 성비 ${(p.tm / p.tf * 100).toFixed(1)}) · 가장 많은 연령대 ${AG[k]}세<br>일반가구 ${nf(p.hh)} · 1인가구 ${pct(p.hs[0], p.hh)}%</p>
+      <div class="legend"><span><i style="background:var(--male)"></i>남자</span><span><i style="background:var(--female)"></i>여자</span></div>
+      <div class="chart" id="pyrOne"><div class="tip"></div></div>
+      <h2 style="margin-top:10px">가구원수별 일반가구</h2><div class="chart" id="hhOne"><div class="tip"></div></div>`;
     detail.querySelector('.close').onclick = () => select(null);
-    bigPyramid(document.getElementById('pyrOne'), p.m, p.f, p.t);
-    if (window.innerWidth <= 760) detail.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    pyramid(document.getElementById('pyrOne'), p.m, p.f, p.t);
+    hhChart(document.getElementById('hhOne'), p.hs, p.hh);
+    if (fly) map.setView([p.c[1], p.c[0]], Math.max(map.getZoom(), 13.5));
+    detail.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
-  // ── 표
-  const cols = [
-    ['행정동', (p) => p.name, (p) => `${p.name} <small style="color:var(--muted)">${p.sgg}</small>`],
-    ['거리km', (p) => p.dist, (p) => p.dist.toFixed(1)],
-    ['총인구', (p) => p.t, (p) => nf(p.t)],
-    ['남', (p) => p.tm, (p) => nf(p.tm)],
-    ['여', (p) => p.tf, (p) => nf(p.tf)],
-    ['성비', (p) => p.tm / p.tf, (p) => (p.tm / p.tf * 100).toFixed(1)],
-  ];
-  let sortI = 2, sortDir = -1;
-  function drawTable() {
-    const rows = F.map((x) => x.properties).sort((a, b) => { const va = cols[sortI][1](a), vb = cols[sortI][1](b); return (va > vb ? 1 : va < vb ? -1 : 0) * sortDir; });
-    document.getElementById('tbl').innerHTML = `<thead><tr>${cols.map(([h], i) => `<th data-i="${i}"${i === sortI ? ` aria-sort="${sortDir > 0 ? 'ascending' : 'descending'}" data-arrow="${sortDir > 0 ? '↑' : '↓'}"` : ''}>${h}</th>`).join('')}</tr></thead><tbody>` +
-      rows.map((p) => `<tr data-c="${p.code}">${cols.map((c) => `<td>${c[2](p)}</td>`).join('')}</tr>`).join('') +
-      `</tbody><tfoot><tr><th>합계</th><th></th><th>${nf(tot.t)}</th><th>${nf(tot.m)}</th><th>${nf(tot.f)}</th><th>${(tot.m / tot.f * 100).toFixed(1)}</th></tr></tfoot>`;
-    document.querySelectorAll('#tbl th[data-i]').forEach((th) => (th.onclick = () => { const i = +th.dataset.i; sortDir = i === sortI ? -sortDir : i === 0 ? 1 : -1; sortI = i; drawTable(); }));
-    document.querySelectorAll('#tbl tbody tr').forEach((tr) => (tr.onclick = () => { select(tr.dataset.c); const p = F.find((x) => x.properties.code === tr.dataset.c).properties; map.setView([p.c[1], p.c[0]], Math.max(map.getZoom(), 14)); }));
-  }
-  drawTable();
+  // ── 문구·출처
+  document.getElementById('method').textContent = `운연역 위치는 브이월드 검색 API(인천 남동구 운연동 130-1)를 썼고, 행정동 경계의 중심점이 역에서 ${D.radius_km}km 안인 ${F.length}개 행정동을 골랐습니다(경계만 걸친 ${D.excluded}개 동 제외). 고른 동은 원 밖 부분까지 동 전체 값을 셉니다. 지도의 인구이동은 읍면동 단위 연령별 통계가 없어 시군구 전체 값입니다.`;
+  document.getElementById('hhNote').textContent = `가구는 ${D.hh.year} 인구총조사(11월 1일 기준) 일반가구이며, 주민등록 세대와는 다릅니다. 인천 서해구 가좌2·3·4동은 조사 당시 코드(인천 서구)로 연결했습니다. 학온동의 6인 이상 가구는 원표에서 비공개(X)라 6인 이상 합계에서 빠졌습니다(* 표시).`;
+  document.getElementById('src').innerHTML = [
+    `인구: ${D.popSource}, ${per} — <a href="${D.popUrl}" target="_blank" rel="noopener">KOSIS 바로가기</a>`,
+    `가구: ${D.hh.source}, ${D.hh.year} — <a href="${D.hh.url}" target="_blank" rel="noopener">KOSIS 바로가기</a>`,
+    `인구이동: ${M.source}, ${M.year}년 — <a href="${M.url}" target="_blank" rel="noopener">KOSIS 바로가기</a>`,
+    `역 위치: ${S.source} · ${D.boundarySource} · 배경지도 © OpenStreetMap 기여자`,
+  ].join('<br>');
 
-  document.getElementById('method').textContent = `운연역 위치는 브이월드 검색 API(인천 남동구 운연동 130-1)를 썼고, 행정동 경계의 중심점이 역에서 ${D.radius_km}km 안에 있는 ${F.length}개 행정동을 골랐습니다. 경계만 원에 걸치고 중심점이 밖인 ${D.excluded}개 동은 빠졌으며, 고른 동은 원 밖에 걸친 부분까지 동 전체 인구를 셉니다.`;
-  document.getElementById('src').innerHTML = `인구: ${D.popSource}, ${per}, <a href="${D.popUrl}" target="_blank" rel="noopener">KOSIS 바로가기</a><br>역 위치: ${S.source}<br>${D.boundarySource}<br>배경지도: © OpenStreetMap 기여자`;
-
-  select(null);
+  paintCards(); paintLegend(); paintMigPanel();
+  setTimeout(() => map.invalidateSize(), 0);
 })();
 </script>
 </body>
