@@ -35,14 +35,14 @@
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; }
 body { background: var(--page); color: var(--ink); font: 14px/1.5 system-ui, -apple-system, "Segoe UI", "Malgun Gothic", sans-serif; }
-.app { display: grid; grid-template-columns: 400px minmax(0, 1fr); height: 100vh; height: 100dvh; }
+.app { display: grid; grid-template-columns: 420px minmax(0, 1fr); height: 100vh; height: 100dvh; }
 .panel { background: var(--surface); border-right: 1px solid var(--border); overflow-y: auto; padding: 20px 20px 28px; display: flex; flex-direction: column; gap: 20px; min-width: 0; }
-.mapcol { position: relative; min-width: 0; display: grid; grid-template-rows: minmax(0, 1fr) auto; }
+.mapcol { position: relative; min-width: 0; display: grid; grid-template-rows: minmax(0, 1fr); }
 #map { min-height: 0; background: var(--page); }
 h1 { font-size: 20px; line-height: 1.3; margin: 0; font-weight: 650; letter-spacing: -0.01em; }
 .sub { color: var(--ink-2); margin: 4px 0 0; font-size: 13px; }
 h2 { font-size: 12px; font-weight: 600; color: var(--muted); margin: 0 0 8px; letter-spacing: .02em; }
-.tabs { display: grid; grid-template-columns: repeat(3, 1fr); border-bottom: 1px solid var(--border); margin: 0 -20px; padding: 0 20px; position: sticky; top: -20px; background: var(--surface); z-index: 3; }
+.tabs { display: grid; grid-template-columns: repeat(4, 1fr); border-bottom: 1px solid var(--border); margin: 0 -20px; padding: 0 20px; position: sticky; top: -20px; background: var(--surface); z-index: 3; }
 .tab { border: 0; background: none; font: inherit; font-size: 14px; color: var(--ink-2); padding: 10px 0; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
 .tab:hover { color: var(--ink); }
 .tab[aria-selected="true"] { color: var(--ink); font-weight: 600; border-bottom-color: var(--ink); }
@@ -97,7 +97,8 @@ tbody tr:hover { background: var(--hover); }
 .mapctl { position: absolute; top: 10px; right: 10px; z-index: 800; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
 .mapctl .box { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow); padding: 6px 10px; font-size: 12.5px; color: var(--ink-2); }
 .mapctl label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
-.migpanel { background: var(--surface); border-top: 1px solid var(--border); padding: 10px 16px 12px; position: relative; max-height: 38vh; overflow: auto; }
+.migpanel { position: relative; }
+.migpanel .cols2 { grid-template-columns: 1fr; gap: 6px; }
 .migpanel h2 { margin: 0; }
 .migpanel .head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
 .migpanel .hint { font-size: 12px; color: var(--muted); }
@@ -124,8 +125,7 @@ tbody tr:hover { background: var(--hover); }
 .leaflet-tooltip.stnlab::before { display: none; }
 @media (max-width: 860px) {
   .app { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto; height: auto; }
-  .mapcol { order: -1; grid-template-rows: 62vh auto; }
-  .migpanel { max-height: none; }
+  .mapcol { order: -1; grid-template-rows: 62vh; }
   .panel { border-right: 0; border-top: 1px solid var(--border); overflow: visible; padding: 18px 16px 24px; }
   .tabs { margin: 0 -16px; padding: 0 16px; top: 0; }
   .hbar { grid-template-columns: 108px 1fr 90px; }
@@ -147,6 +147,7 @@ tbody tr:hover { background: var(--hover); }
       <button class="tab" role="tab" data-t="pop" aria-selected="true">인구구조</button>
       <button class="tab" role="tab" data-t="hh" aria-selected="false">가구원수</button>
       <button class="tab" role="tab" data-t="one" aria-selected="false">1인가구</button>
+      <button class="tab" role="tab" data-t="mig" aria-selected="false">인구이동</button>
     </div>
 
     <!-- 인구구조 -->
@@ -205,6 +206,11 @@ tbody tr:hover { background: var(--hover); }
       </section>
     </div>
 
+    <!-- 인구이동 (지도와 연동) -->
+    <div class="tabpanel" id="tp-mig" role="tabpanel" hidden>
+      <section class="migpanel" id="migpanel" aria-live="polite"></section>
+    </div>
+
     <section>
       <p class="note" id="method"></p>
       <p class="note">연령·가구원수 구간은 원표(KOSIS)에 수록된 구간 그대로이며, 원표에 없는 구간(예: 65세 이상, 4인 이상)은 합산해 만들지 않았습니다. 반경·시군구 합계는 행정동 값을 더한 직접 집계입니다.</p>
@@ -220,7 +226,6 @@ tbody tr:hover { background: var(--hover); }
       <div class="seg" id="dimSeg" role="group" aria-label="카드·히트맵 구분"><button data-v="age" aria-pressed="true">연령별</button><button data-v="reason" aria-pressed="false">전입사유별</button></div>
       <div class="box"><label><input type="checkbox" id="arrowToggle" checked> 시군구 간 이동 화살표</label></div>
     </div>
-    <section class="migpanel" id="migpanel" aria-live="polite"></section>
   </div>
 </div>
 
@@ -381,11 +386,11 @@ tbody tr:hover { background: var(--hover); }
   const tabs = document.querySelectorAll('.tab');
   function setTab(t) {
     tabs.forEach((b) => b.setAttribute('aria-selected', String(b.dataset.t === t)));
-    for (const id of ['pop', 'hh', 'one']) document.getElementById('tp-' + id).hidden = id !== t;
+    for (const id of ['pop', 'hh', 'one', 'mig']) document.getElementById('tp-' + id).hidden = id !== t;
     try { history.replaceState(null, '', location.pathname + (t === 'pop' ? '' : '#' + t)); } catch (e) {}
   }
   tabs.forEach((b) => (b.onclick = () => setTab(b.dataset.t)));
-  setTab(['hh', 'one'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'pop');
+  setTab(['hh', 'one', 'mig'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'pop');
 
   // ══ 지도
   const map = L.map('map', { zoomSnap: 0.25, minZoom: 9, maxZoom: 18 });
@@ -553,20 +558,22 @@ tbody tr:hover { background: var(--hover); }
     if (!selSgg) {
       const rows = mgOk.slice().sort((a, b) => series(b).total[migMode] - series(a).total[migMode]);
       const labels = series(rows[0]).labels, n = labels.length, unit = dim === 'age' ? '세' : '';
-      const W = 900, lw = 108, tw = 74, rh = dim === 'age' ? 18 : 20, top = 16, cw = (W - lw - tw) / n, H = top + rows.length * rh + 4;
+      // 왼쪽 패널 폭에 맞춘 작은 히트맵 (연령은 머리글을 한 칸 걸러 표시)
+      const W = 380, lw = 58, tw = 52, rh = dim === 'age' ? 20 : 24, top = 18, cw = (W - lw - tw) / n, H = top + rows.length * rh + (dim === 'age' ? 18 : 4);
       let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="시군구별 ${dim === 'age' ? '연령' : '전입사유'}별 ${modeName[migMode]} 히트맵">`;
-      labels.forEach((a, j) => (s += `<text x="${lw + j * cw + cw / 2}" y="12" text-anchor="middle">${a.replace('–', '-')}</text>`));
-      s += `<text x="${W - tw / 2}" y="12" text-anchor="middle">${modeName[migMode]} 계</text>`;
+      labels.forEach((a, j) => { if (dim === 'reason' || j % 2 === 0) s += `<text x="${lw + j * cw + cw / 2}" y="12" text-anchor="middle" style="font-size:${dim === 'age' ? 8.5 : 9.5}px">${dim === 'age' ? a.replace(/–.*/, '').replace('+', '+') : a}</text>`; });
+      s += `<text x="${W - tw / 2}" y="12" text-anchor="middle" style="font-size:9.5px">${modeName[migMode]} 계</text>`;
       rows.forEach((k, i) => {
         const o = series(k), y = top + i * rh, arr = o[migMode], tot = o.total[migMode];
-        s += `<text class="rowlab" data-k="${k}" x="0" y="${y + rh / 2 + 4}">${mg[k].name}${mg[k].note ? '*' : ''}</text>`;
+        s += `<text class="rowlab" data-k="${k}" x="0" y="${y + rh / 2 + 4}">${mg[k].name.replace(/^\S+ /, '')}${mg[k].note ? '*' : ''}</text>`;
         arr.forEach((v, j) => {
           const c = cellColor(v);
-          s += `<rect class="cell" data-k="${k}" data-j="${j}" x="${lw + j * cw + 1}" y="${y + 1}" width="${cw - 2}" height="${rh - 2}" rx="3" fill="${c}"/>`;
-          if (dim === 'reason') s += `<text x="${lw + j * cw + cw / 2}" y="${y + rh / 2 + 3.5}" text-anchor="middle" style="pointer-events:none;font-size:10.5px;fill:${lum(c) < 0.55 ? '#ffffff' : '#0b0b0b'}">${migMode === 'net' ? sn(v) : nf(v)}</text>`;
+          s += `<rect class="cell" data-k="${k}" data-j="${j}" x="${lw + j * cw + 0.75}" y="${y + 1}" width="${cw - 1.5}" height="${rh - 2}" rx="2.5" fill="${c}"/>`;
+          if (dim === 'reason') s += `<text x="${lw + j * cw + cw / 2}" y="${y + rh / 2 + 3}" text-anchor="middle" style="pointer-events:none;font-size:8.5px;fill:${lum(c) < 0.55 ? '#ffffff' : '#0b0b0b'}">${migMode === 'net' ? sn(v) : nf(v)}</text>`;
         });
-        s += `<text x="${W - 6}" y="${y + rh / 2 + 4}" text-anchor="end" style="fill:${migMode === 'net' ? (tot >= 0 ? 'var(--in)' : 'var(--out)') : 'var(--ink-2)'};font-weight:600;font-size:11px">${migMode === 'net' ? sn(tot) : nf(tot)}</text>`;
+        s += `<text x="${W - 2}" y="${y + rh / 2 + 4}" text-anchor="end" style="fill:${migMode === 'net' ? (tot >= 0 ? 'var(--in)' : 'var(--out)') : 'var(--ink-2)'};font-weight:600;font-size:10.5px">${migMode === 'net' ? sn(tot) : nf(tot)}</text>`;
       });
+      if (dim === 'age') s += `<text x="${lw}" y="${H - 3}" style="font-size:8.5px">머리글 숫자는 5세 구간의 시작 나이 (80+ = 80세 이상)</text>`;
       s += '</svg>';
       mp.innerHTML = `<div class="head"><h2>시군구 × ${dim === 'age' ? '연령' : '전입사유'}별 ${modeName[migMode]} (${M.year}년, 명)</h2><span class="hint">${migMode === 'net' ? '파랑 = 전입이 많음 · 빨강 = 전출이 많음 · ' : ''}행·카드·화살표를 누르면 상세</span></div><div class="hm">${s}<div class="tip"></div></div>
         <p class="note" style="margin-top:6px">* 부천시는 구별 이동 자료가 없어 시 전체 값입니다. 인천 서해구는 2026년 신설로 ${M.year}년 연간 자료가 없습니다. 이동 통계는 반경 안 일부가 아니라 시군구 전체 값입니다.${dim === 'reason' ? ' 전입사유는 직업·가족·주택·교육·주거환경·자연환경·기타 7가지(원표 구분)이며, 전출의 사유는 그 사람이 새로 전입한 곳에 신고한 사유입니다.' : ''}</p>`;
@@ -696,6 +703,7 @@ tbody tr:hover { background: var(--hover); }
   function selectSgg(k) {
     if (k && mg[k]?.missing) k = null;
     selSgg = k;
+    if (k) setTab('mig'); // 지도에서 시군구를 누르면 왼쪽 '인구이동' 탭으로
     sggLayer.setStyle((f) => sggStyle(f.properties.k)); paintCards(); layoutCards(); paintLegend(); paintMigPanel();
   }
 
