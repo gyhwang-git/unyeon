@@ -1,0 +1,10 @@
+# 비밀값 (공유·커밋 금지)
+.env
+*.env
+vworld_key.js
+
+node_modules/
+.DS_Store
+
+# 원본 대용량 경계(재생성 가능)
+data/raw_admdong.geojson

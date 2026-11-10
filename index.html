@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>운연역 10km 인구</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+:root {
+  color-scheme: light;
+  --page: #f9f9f7; --surface: #fcfcfb; --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
+  --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11,11,11,0.10); --hover: rgba(11,11,11,0.05);
+  --accent: #2a78d6;
+  --male: #2a78d6; --female: #eb6834;   /* 범주형 1·2번 슬롯(검증된 순서) */
+  --shadow: 0 1px 2px rgba(0,0,0,.06), 0 4px 16px rgba(0,0,0,.08);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10); --hover: rgba(255,255,255,0.06);
+    --accent: #3987e5; --male: #3987e5; --female: #d95926;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 4px 16px rgba(0,0,0,.4);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
+  --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10); --hover: rgba(255,255,255,0.06);
+  --accent: #3987e5; --male: #3987e5; --female: #d95926;
+  --shadow: 0 1px 2px rgba(0,0,0,.4), 0 4px 16px rgba(0,0,0,.4);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--page); color: var(--ink); font: 14px/1.5 system-ui, -apple-system, "Segoe UI", "Malgun Gothic", sans-serif; }
+.app { display: grid; grid-template-columns: 380px minmax(0, 1fr); height: 100vh; height: 100dvh; }
+#map { height: 100%; background: var(--page); }
+.panel { background: var(--surface); border-right: 1px solid var(--border); overflow-y: auto; padding: 20px 20px 28px; display: flex; flex-direction: column; gap: 22px; min-width: 0; }
+h1 { font-size: 20px; line-height: 1.3; margin: 0; font-weight: 650; letter-spacing: -0.01em; }
+.sub { color: var(--ink-2); margin: 4px 0 0; font-size: 13px; }
+h2 { font-size: 12px; font-weight: 600; color: var(--muted); margin: 0 0 8px; letter-spacing: .02em; }
+.tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.tile { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+.tile .k { font-size: 12px; color: var(--muted); }
+.tile .v { font-size: 20px; font-weight: 650; letter-spacing: -0.01em; }
+.tile .v small { font-size: 12px; font-weight: 500; color: var(--ink-2); margin-left: 2px; }
+.tile.wide { grid-column: span 2; }
+.legend { display: flex; gap: 14px; font-size: 12.5px; color: var(--ink-2); align-items: center; margin-bottom: 6px; }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+.pyr { position: relative; }
+.pyr svg { display: block; width: 100%; height: auto; }
+.pyr text { fill: var(--muted); font-size: 10px; font-variant-numeric: tabular-nums; }
+.tip { position: absolute; pointer-events: none; background: var(--surface); color: var(--ink); border: 1px solid var(--border); box-shadow: var(--shadow); border-radius: 8px; padding: 6px 9px; font-size: 12px; white-space: nowrap; opacity: 0; transition: opacity .1s; z-index: 5; }
+.tip b { font-weight: 600; }
+.hbar { display: grid; grid-template-columns: 124px 1fr 84px; align-items: center; gap: 8px; font-size: 12.5px; padding: 3px 0; }
+.hbar .lab { color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hbar .track { height: 10px; position: relative; }
+.hbar .bar { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 0 4px 4px 0; background: var(--ink-2); opacity: .55; }
+.hbar .val { text-align: right; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.detail { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+.detail .hint { color: var(--muted); font-size: 13px; margin: 0; }
+.detail h3 { margin: 0; font-size: 16px; font-weight: 650; }
+.detail .meta { font-size: 12.5px; color: var(--ink-2); margin: 2px 0 8px; }
+.detail .close { float: right; border: 0; background: none; color: var(--muted); font-size: 18px; cursor: pointer; line-height: 1; }
+details { border-top: 1px solid var(--border); padding-top: 14px; }
+summary { cursor: pointer; font-size: 13px; color: var(--ink-2); }
+.tblwrap { max-height: 420px; overflow: auto; margin-top: 10px; }
+table { border-collapse: collapse; width: 100%; font-size: 12px; font-variant-numeric: tabular-nums; }
+th, td { padding: 4px 4px; text-align: right; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+th { color: var(--muted); font-weight: 600; position: sticky; top: 0; background: var(--surface); cursor: pointer; }
+th[aria-sort]::after { content: attr(data-arrow); margin-left: 2px; }
+tbody tr { cursor: pointer; }
+tbody tr:hover { background: var(--hover); }
+.note { font-size: 12px; color: var(--ink-2); margin: 0; }
+.note + .note { margin-top: 6px; }
+.src { font-size: 11.5px; color: var(--muted); border-top: 1px solid var(--border); padding-top: 14px; margin-top: auto; }
+.src a { color: inherit; }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.seg button { border: 0; background: transparent; color: var(--ink-2); font: inherit; font-size: 12.5px; padding: 4px 10px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--surface); }
+.row { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+/* 지도 */
+.leaflet-container { font: inherit; }
+.tiles-gray { filter: grayscale(1) contrast(.68) brightness(1.14); }
+.mpyr { background: rgba(255,255,255,.92); border: 1px solid rgba(11,11,11,.18); border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,.15); cursor: pointer; }
+.mpyr:hover, .mpyr.sel { border-color: #0b0b0b; box-shadow: 0 0 0 1.5px #0b0b0b; z-index: 1000 !important; }
+.mpyr svg { display: block; }
+.mpyr .nm { font-size: 9.5px; line-height: 1; text-align: center; color: #0b0b0b; padding: 2px 2px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+.mdot { width: 8px; height: 8px; border-radius: 50%; background: #52514e; border: 1.5px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.25); }
+.leaflet-tooltip.btip { background: var(--surface); color: var(--ink); border: 1px solid var(--border); box-shadow: var(--shadow); border-radius: 8px; padding: 8px 10px; font-size: 12px; line-height: 1.5; }
+.leaflet-tooltip.btip::before { display: none; }
+.btip .t { font-weight: 600; font-size: 13px; }
+.btip .r { display: flex; gap: 12px; justify-content: space-between; }
+.btip .r span:first-child { color: var(--muted); }
+.stn { width: 14px; height: 14px; border-radius: 50%; background: #e34948; border: 2.5px solid #fff; box-shadow: 0 0 0 1.5px #0b0b0b; }
+.leaflet-tooltip.stnlab { background: #0b0b0b; color: #fff; border: 0; font-weight: 650; font-size: 12px; padding: 2px 7px; border-radius: 4px; }
+.leaflet-tooltip.stnlab::before { display: none; }
+@media (max-width: 760px) {
+  .app { grid-template-columns: minmax(0, 1fr); grid-template-rows: 60vh auto; height: auto; }
+  #map { height: 60vh; order: -1; }
+  .panel { border-right: 0; border-top: 1px solid var(--border); overflow: visible; padding: 18px 16px 24px; }
+  .hbar { grid-template-columns: 108px 1fr 78px; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="panel">
+    <header>
+      <h1>운연역 반경 10km 주민등록인구</h1>
+      <p class="sub" id="sub"></p>
+    </header>
+
+    <section>
+      <div class="tiles" id="tiles"></div>
+    </section>
+
+    <section>
+      <div class="row"><h2>성·연령별 인구 (5세 구간)</h2></div>
+      <div class="legend"><span><i style="background:var(--male)"></i>남자</span><span><i style="background:var(--female)"></i>여자</span></div>
+      <div class="pyr" id="pyrAll"><div class="tip"></div></div>
+    </section>
+
+    <section class="detail" id="detail"></section>
+
+    <section>
+      <h2>시군구별 인구 (반경 내 행정동 합계)</h2>
+      <div id="sgg"></div>
+    </section>
+
+    <details>
+      <summary>행정동 131곳 표로 보기</summary>
+      <div class="tblwrap"><table id="tbl"></table></div>
+    </details>
+
+    <section>
+      <div class="row"><h2 style="margin:0">지도 위 피라미드</h2>
+        <div class="seg" id="scaleSeg" role="group" aria-label="피라미드 가로 축"><button data-v="share" aria-pressed="true">구성비</button><button data-v="abs" aria-pressed="false">인원</button></div></div>
+      <p class="note" style="margin-top:8px">구성비: 각 동 인구 중 해당 성·연령 비율(모든 동 같은 축) · 인원: 사람 수(모든 동 같은 축)</p>
+    </section>
+
+    <section>
+      <p class="note" id="method"></p>
+      <p class="note">5세 구간은 원표(KOSIS)에 수록된 구간 그대로이며, ‘65세 이상’처럼 원표에 없는 구간은 따로 합산하지 않았습니다. 반경 합계·시군구 합계는 반경 안 행정동 값을 더한 직접 집계입니다.</p>
+    </section>
+
+    <footer class="src" id="src"></footer>
+  </aside>
+  <div id="map" aria-label="운연역 반경 10km 행정동 인구 지도"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="data/unyeon_data.js"></script>
+<script>
+(() => {
+  const D = window.UNYEON, F = D.dongs.features, AG = D.ages, N = AG.length;
+  const nf = (n) => Math.round(n).toLocaleString('ko-KR');
+  const pct = (a, b, d = 1) => ((a / b) * 100).toFixed(d);
+  const per = `${D.period.slice(0, 4)}년 ${Number(D.period.slice(4))}월`;
+  const sum = (a) => a.reduce((s, v) => s + v, 0);
+
+  // ── 반경 합계 (직접 집계)
+  const tot = { t: 0, m: 0, f: 0, am: Array(N).fill(0), af: Array(N).fill(0) };
+  for (const x of F) { const p = x.properties; tot.t += p.t; tot.m += p.tm; tot.f += p.tf; p.m.forEach((v, i) => (tot.am[i] += v)); p.f.forEach((v, i) => (tot.af[i] += v)); }
+  const sggName = (p) => `${p.sido.replace(/(특별시|광역시|도)$/, '')} ${p.sgg}`;
+  const ageMax = (m, f) => { let k = 0; for (let i = 1; i < N; i++) if (m[i] + f[i] > m[k] + f[k]) k = i; return k; };
+
+  document.getElementById('sub').textContent = `${per} 기준 · 행정동 ${F.length}곳 · 인천·경기·서울 ${new Set(F.map((x) => sggName(x.properties))).size}개 시군구`;
+  const big = ageMax(tot.am, tot.af);
+  document.getElementById('tiles').innerHTML = `
+    <div class="tile wide"><div class="k">총인구</div><div class="v">${nf(tot.t)}<small>명</small></div></div>
+    <div class="tile"><div class="k">남자</div><div class="v">${nf(tot.m)}<small>명</small></div></div>
+    <div class="tile"><div class="k">여자</div><div class="v">${nf(tot.f)}<small>명</small></div></div>
+    <div class="tile"><div class="k">성비 (여자 100명당 남자)</div><div class="v">${(tot.m / tot.f * 100).toFixed(1)}</div></div>
+    <div class="tile"><div class="k">가장 많은 연령대</div><div class="v">${AG[big]}<small>세 · ${pct(tot.am[big] + tot.af[big], tot.t)}%</small></div></div>`;
+
+  // ── 큰 피라미드 (패널)
+  function bigPyramid(el, m, f, t) {
+    const W = 340, rowH = 11, top = 4, H = top + N * rowH + 22, mid = W / 2, lab = 34, half = mid - lab / 2 - 14;
+    const max = Math.max(...m, ...f) / t * 100, step = max > 6 ? 2 : max > 3 ? 1 : 0.5, sc = Math.ceil(max / step) * step;
+    const x = (v) => (v / t * 100) / sc * half;
+    let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="성·연령별 인구 피라미드">`;
+    for (let v = step; v <= sc + 1e-9; v += step) { const dx = v / sc * half; s += `<line x1="${mid - lab / 2 - dx}" x2="${mid - lab / 2 - dx}" y1="${top}" y2="${top + N * rowH}" stroke="var(--grid)"/><line x1="${mid + lab / 2 + dx}" x2="${mid + lab / 2 + dx}" y1="${top}" y2="${top + N * rowH}" stroke="var(--grid)"/><text x="${mid - lab / 2 - dx}" y="${H - 6}" text-anchor="middle">${v}%</text><text x="${mid + lab / 2 + dx}" y="${H - 6}" text-anchor="middle">${v}%</text>`; }
+    for (let i = 0; i < N; i++) {
+      const y = top + (N - 1 - i) * rowH, h = rowH - 2, wm = x(m[i]), wf = x(f[i]), r = Math.min(3, h / 2);
+      const L = mid - lab / 2, R = mid + lab / 2;
+      if (wm > 0) s += `<path d="M${L},${y} H${L - wm + r} Q${L - wm},${y} ${L - wm},${y + r} V${y + h - r} Q${L - wm},${y + h} ${L - wm + r},${y + h} H${L} Z" fill="var(--male)"/>`;
+      if (wf > 0) s += `<path d="M${R},${y} H${R + wf - r} Q${R + wf},${y} ${R + wf},${y + r} V${y + h - r} Q${R + wf},${y + h} ${R + wf - r},${y + h} H${R} Z" fill="var(--female)"/>`;
+      if (i % 2 === 0) s += `<text x="${mid}" y="${y + h - 1}" text-anchor="middle">${AG[i].replace('–', '-')}</text>`;
+      s += `<rect class="hit" data-i="${i}" x="0" y="${y - 1}" width="${W}" height="${rowH}" fill="transparent"/>`;
+    }
+    s += `<line x1="${mid - lab / 2}" x2="${mid - lab / 2}" y1="${top}" y2="${top + N * rowH}" stroke="var(--axis)"/><line x1="${mid + lab / 2}" x2="${mid + lab / 2}" y1="${top}" y2="${top + N * rowH}" stroke="var(--axis)"/></svg>`;
+    el.querySelector('svg')?.remove();
+    el.insertAdjacentHTML('afterbegin', s);
+    const tip = el.querySelector('.tip');
+    el.querySelectorAll('.hit').forEach((r) => {
+      r.addEventListener('mouseenter', () => {
+        const i = +r.dataset.i;
+        tip.innerHTML = `<b>${AG[i]}세</b><br>남 ${nf(m[i])}명 (${pct(m[i], t)}%) · 여 ${nf(f[i])}명 (${pct(f[i], t)}%)`;
+        const box = el.getBoundingClientRect(), rb = r.getBoundingClientRect();
+        tip.style.left = Math.max(0, box.width / 2 - 110) + 'px'; tip.style.top = rb.top - box.top - 42 + 'px'; tip.style.opacity = 1;
+      });
+      r.addEventListener('mouseleave', () => (tip.style.opacity = 0));
+    });
+  }
+  bigPyramid(document.getElementById('pyrAll'), tot.am, tot.af, tot.t);
+
+  // ── 시군구 막대
+  const sg = {};
+  for (const x of F) { const k = sggName(x.properties); (sg[k] ??= { t: 0, n: 0 }); sg[k].t += x.properties.t; sg[k].n++; }
+  const sgRows = Object.entries(sg).sort((a, b) => b[1].t - a[1].t), sgMax = sgRows[0][1].t;
+  document.getElementById('sgg').innerHTML = sgRows.map(([k, v]) => `<div class="hbar"><span class="lab" title="${k}">${k} <small style="color:var(--muted)">${v.n}동</small></span><span class="track"><span class="bar" style="width:${v.t / sgMax * 100}%"></span></span><span class="val">${nf(v.t)}</span></div>`).join('');
+
+  // ── 지도
+  const map = L.map('map', { preferCanvas: false, zoomSnap: 0.25, minZoom: 10, maxZoom: 18 });
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18, className: 'tiles-gray', attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> 기여자' }).addTo(map);
+  const S = D.station;
+  L.circle([S.lat, S.lon], { radius: D.radius_km * 1000, color: '#e34948', weight: 2, dashArray: '6 5', fill: false, interactive: false }).addTo(map);
+  const dongLayer = L.geoJSON(D.dongs, {
+    style: () => ({ color: '#52514e', weight: 0.8, opacity: 0.7, fillColor: '#ffffff', fillOpacity: 0.05 }),
+    onEachFeature(f, layer) {
+      const p = f.properties;
+      layer.bindTooltip(() => `<div class="t">${p.name}</div><div style="color:var(--muted);margin-bottom:3px">${sggName(p)} · 운연역에서 ${p.dist.toFixed(1)}km</div>` +
+        [['총인구', nf(p.t) + '명'], ['남 / 여', `${nf(p.tm)} / ${nf(p.tf)}`], ['성비', (p.tm / p.tf * 100).toFixed(1)], ['면적', p.area.toFixed(2) + '㎢']].map(([k, v]) => `<div class="r"><span>${k}</span><span>${v}</span></div>`).join(''), { className: 'btip', sticky: true });
+      layer.on('mouseover', () => layer.setStyle({ weight: 2, color: '#0b0b0b', fillOpacity: 0.12 }));
+      layer.on('mouseout', () => layer.setStyle({ color: '#52514e', weight: sel === p.code ? 2.5 : 0.8, fillOpacity: sel === p.code ? 0.15 : 0.05 }));
+      layer.on('click', () => select(p.code));
+    },
+  }).addTo(map);
+  L.marker([S.lat, S.lon], { icon: L.divIcon({ className: '', html: '<div class="stn"></div>', iconSize: [14, 14] }), zIndexOffset: 2000, interactive: false })
+    .bindTooltip('운연역', { permanent: true, direction: 'right', offset: [8, 0], className: 'stnlab' }).addTo(map);
+  map.fitBounds(L.latLng(S.lat, S.lon).toBounds(D.radius_km * 2000), { padding: [10, 10] });
+
+  // ── 지도 위 작은 피라미드: 축척은 '구성비'(동마다 자기 인구 대비 %) 또는 '인원'(사람 수), 모든 동 같은 축
+  let scaleMode = 'share';
+  const PW = 52, PH = 44, NM = 11; // 카드 크기(px)
+  const shareMax = Math.max(...F.flatMap((x) => x.properties.m.concat(x.properties.f).map((v) => v / x.properties.t)));
+  const absMax = Math.max(...F.flatMap((x) => x.properties.m.concat(x.properties.f)));
+  function miniSVG(p) {
+    const half = PW / 2 - 3, rh = (PH - 4) / N;
+    const w = (v) => (scaleMode === 'share' ? v / p.t / shareMax : v / absMax) * half;
+    let s = `<svg width="${PW}" height="${PH}" viewBox="0 0 ${PW} ${PH}" aria-hidden="true">`;
+    for (let i = 0; i < N; i++) {
+      const y = 2 + (N - 1 - i) * rh;
+      s += `<rect x="${PW / 2 - w(p.m[i])}" y="${y}" width="${w(p.m[i])}" height="${rh - 0.4}" fill="${css('--male')}"/><rect x="${PW / 2}" y="${y}" width="${w(p.f[i])}" height="${rh - 0.4}" fill="${css('--female')}"/>`;
+    }
+    return s + `<line x1="${PW / 2}" x2="${PW / 2}" y1="1" y2="${PH - 1}" stroke="#c3c2b7" stroke-width="0.6"/></svg>`;
+  }
+  const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  const markers = F.map((x) => {
+    const p = x.properties;
+    const m = L.marker([p.c[1], p.c[0]], { icon: L.divIcon({ className: '', html: '', iconSize: [PW, PH + NM] }), riseOnHover: true });
+    m.on('click', () => select(p.code));
+    m.bindTooltip(() => `<div class="t">${p.name}</div><div style="color:var(--muted)">${sggName(p)} · 총 ${nf(p.t)}명</div>`, { className: 'btip', direction: 'top', offset: [0, -(PH + NM) / 2] });
+    m.p = p; m.addTo(map);
+    return m;
+  });
+  function paintMarkers() {
+    for (const m of markers) m.big = `<div class="mpyr${sel === m.p.code ? ' sel' : ''}" style="width:${PW + 2}px"><div class="nm">${m.p.name}</div>${miniSVG(m.p)}</div>`;
+    layoutMarkers();
+  }
+  // 겹치면 인구가 많은 동을 먼저 보여주고 나머지는 점으로
+  function layoutMarkers() {
+    const placed = [];
+    const order = markers.slice().sort((a, b) => (b.p.code === sel) - (a.p.code === sel) || b.p.t - a.p.t);
+    for (const m of order) {
+      const pt = map.latLngToContainerPoint(m.getLatLng());
+      const box = [pt.x - PW / 2 - 1, pt.y - (PH + NM) / 2 - 1, pt.x + PW / 2 + 1, pt.y + (PH + NM) / 2 + 1];
+      const hit = placed.some((b) => !(box[2] < b[0] || box[0] > b[2] || box[3] < b[1] || box[1] > b[3]));
+      const show = !hit;
+      if (show) placed.push(box);
+      if (m.shown !== show || show) {
+        m.setIcon(L.divIcon({ className: '', html: show ? m.big : '<div class="mdot"></div>', iconSize: show ? [PW + 2, PH + NM + 2] : [8, 8] }));
+        m.setZIndexOffset(show ? 1000 + Math.round(m.p.t / 100) : 0);
+        m.shown = show;
+      }
+    }
+    document.getElementById('shownNote')?.remove();
+    const n = markers.filter((m) => m.shown).length;
+    attr.innerHTML = `피라미드 ${n}/${markers.length}곳 표시${n < markers.length ? ' · 확대하면 더 보입니다' : ''}`;
+  }
+  const attr = L.control({ position: 'topright' });
+  attr.onAdd = () => { const d = L.DomUtil.create('div'); d.style.cssText = 'background:var(--surface);color:var(--ink-2);font-size:12px;padding:4px 9px;border-radius:6px;box-shadow:var(--shadow);border:1px solid var(--border)'; return d; };
+  attr.addTo(map); const attrEl = attr.getContainer(); Object.defineProperty(attr, 'innerHTML', { set: (v) => (attrEl.innerHTML = v) });
+  map.on('zoomend', layoutMarkers);
+
+  document.querySelectorAll('#scaleSeg button').forEach((b) => (b.onclick = () => {
+    scaleMode = b.dataset.v;
+    document.querySelectorAll('#scaleSeg button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    paintMarkers();
+  }));
+
+  // ── 선택 동 상세
+  let sel = null;
+  const detail = document.getElementById('detail');
+  function select(code) {
+    sel = code;
+    dongLayer.eachLayer((l) => l.setStyle({ color: l.feature.properties.code === sel ? '#0b0b0b' : '#52514e', weight: l.feature.properties.code === sel ? 2.5 : 0.8, fillOpacity: l.feature.properties.code === sel ? 0.15 : 0.05 }));
+    paintMarkers();
+    if (!code) { detail.innerHTML = '<p class="hint">지도에서 행정동이나 피라미드를 누르면 여기에 자세한 성·연령별 인구가 나옵니다.</p>'; return; }
+    const p = F.find((x) => x.properties.code === code).properties, k = ageMax(p.m, p.f);
+    detail.innerHTML = `<button class="close" aria-label="닫기">×</button><h3>${p.name}</h3>
+      <p class="meta">${sggName(p)} · 운연역에서 ${p.dist.toFixed(1)}km · 총 ${nf(p.t)}명 (남 ${nf(p.tm)} · 여 ${nf(p.tf)}) · 성비 ${(p.tm / p.tf * 100).toFixed(1)} · 가장 많은 연령대 ${AG[k]}세</p>
+      <div class="pyr" id="pyrOne"><div class="tip"></div></div>`;
+    detail.querySelector('.close').onclick = () => select(null);
+    bigPyramid(document.getElementById('pyrOne'), p.m, p.f, p.t);
+    if (window.innerWidth <= 760) detail.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  // ── 표
+  const cols = [
+    ['행정동', (p) => p.name, (p) => `${p.name} <small style="color:var(--muted)">${p.sgg}</small>`],
+    ['거리km', (p) => p.dist, (p) => p.dist.toFixed(1)],
+    ['총인구', (p) => p.t, (p) => nf(p.t)],
+    ['남', (p) => p.tm, (p) => nf(p.tm)],
+    ['여', (p) => p.tf, (p) => nf(p.tf)],
+    ['성비', (p) => p.tm / p.tf, (p) => (p.tm / p.tf * 100).toFixed(1)],
+  ];
+  let sortI = 2, sortDir = -1;
+  function drawTable() {
+    const rows = F.map((x) => x.properties).sort((a, b) => { const va = cols[sortI][1](a), vb = cols[sortI][1](b); return (va > vb ? 1 : va < vb ? -1 : 0) * sortDir; });
+    document.getElementById('tbl').innerHTML = `<thead><tr>${cols.map(([h], i) => `<th data-i="${i}"${i === sortI ? ` aria-sort="${sortDir > 0 ? 'ascending' : 'descending'}" data-arrow="${sortDir > 0 ? '↑' : '↓'}"` : ''}>${h}</th>`).join('')}</tr></thead><tbody>` +
+      rows.map((p) => `<tr data-c="${p.code}">${cols.map((c) => `<td>${c[2](p)}</td>`).join('')}</tr>`).join('') +
+      `</tbody><tfoot><tr><th>합계</th><th></th><th>${nf(tot.t)}</th><th>${nf(tot.m)}</th><th>${nf(tot.f)}</th><th>${(tot.m / tot.f * 100).toFixed(1)}</th></tr></tfoot>`;
+    document.querySelectorAll('#tbl th[data-i]').forEach((th) => (th.onclick = () => { const i = +th.dataset.i; sortDir = i === sortI ? -sortDir : i === 0 ? 1 : -1; sortI = i; drawTable(); }));
+    document.querySelectorAll('#tbl tbody tr').forEach((tr) => (tr.onclick = () => { select(tr.dataset.c); const p = F.find((x) => x.properties.code === tr.dataset.c).properties; map.setView([p.c[1], p.c[0]], Math.max(map.getZoom(), 14)); }));
+  }
+  drawTable();
+
+  document.getElementById('method').textContent = `운연역 위치는 브이월드 검색 API(인천 남동구 운연동 130-1)를 썼고, 행정동 경계의 중심점이 역에서 ${D.radius_km}km 안에 있는 ${F.length}개 행정동을 골랐습니다. 경계만 원에 걸치고 중심점이 밖인 ${D.excluded}개 동은 빠졌으며, 고른 동은 원 밖에 걸친 부분까지 동 전체 인구를 셉니다.`;
+  document.getElementById('src').innerHTML = `인구: ${D.popSource}, ${per}, <a href="${D.popUrl}" target="_blank" rel="noopener">KOSIS 바로가기</a><br>역 위치: ${S.source}<br>${D.boundarySource}<br>배경지도: © OpenStreetMap 기여자`;
+
+  select(null);
+})();
+</script>
+</body>
+</html>
